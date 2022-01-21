@@ -14,7 +14,7 @@
             "kind": "Scheduled",
             "apiVersion": "2021-09-01-preview",
             "properties": {
-                "displayName": "Tracking priv accounts",
+                "displayName": "Tracking priv accounts with watchlist",
                 "description": "adapted from https://github.com/Azure/Azure-Sentinel/blob/master/Hunting%20Queries/MultipleDataSources/TrackingPrivAccounts.yaml adding support for watchlist",
                 "severity": "Medium",
                 "enabled": true,
