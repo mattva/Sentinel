@@ -282,9 +282,6 @@
         "name": "Details"
       }
     ],
-    "fallbackResourceIds": [
-      "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourcegroups/rockstar/providers/microsoft.operationalinsights/workspaces/sec-la-sentinel"
-    ],
     "fromTemplateId": "sentinel-UserWorkbook",
     "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
   }
