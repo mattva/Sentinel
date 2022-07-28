@@ -178,7 +178,7 @@
               "type": 3,
               "content": {
                 "version": "KqlItem/1.0",
-                "query": "AzureDiagnostics\r\n| where ResourceProvider == \"MICROSOFT.CDN\" and Category == \"FrontDoorAccessLog\"\r\n| where rulesEngineMatchNames_s <> \"[]\" and rulesEngineMatchNames_s !contains \"Default\"\r\n| summarize count() by rule = rulesEngineMatchNames_s, client = clientIp_s",
+                "query": "AzureDiagnostics\r\n| where ResourceProvider == \"MICROSOFT.CDN\" and Category == \"FrontDoorAccessLog\"\r\n| where rulesEngineMatchNames_s <> \"[]\" and rulesEngineMatchNames_s !contains \"Default\"\r\n| where hostName_s in ({hostname})\n| summarize count() by rule = rulesEngineMatchNames_s, client = clientIp_s",
                 "size": 0,
                 "timeContextFromParameter": "TimeRange",
                 "queryType": 0,
