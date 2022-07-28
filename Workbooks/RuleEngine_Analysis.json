@@ -19,9 +19,7 @@
               "multiSelect": true,
               "quote": "'",
               "delimiter": ",",
-              "value": [
-                "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d"
-              ],
+              "value": [],
               "typeSettings": {
                 "additionalResourceOptions": [],
                 "includeAll": false
@@ -40,9 +38,6 @@
               "query": "resources\r\n| where type =~ 'microsoft.operationalinsights/workspaces'\r\n| project id",
               "crossComponentResources": [
                 "{Subscription}"
-              ],
-              "value": [
-                "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourceGroups/RockStar/providers/Microsoft.OperationalInsights/workspaces/Sec-LA-Sentinel"
               ],
               "typeSettings": {
                 "resourceTypeFilter": {
@@ -131,11 +126,9 @@
               "crossComponentResources": [
                 "{Workspace}"
               ],
-              "value": [
-                "www.mattuclab.eu"
-              ],
               "typeSettings": {
-                "additionalResourceOptions": []
+                "additionalResourceOptions": [],
+                "showDefault": false
               },
               "timeContext": {
                 "durationMs": 0
@@ -190,6 +183,9 @@
                 "timeContextFromParameter": "TimeRange",
                 "queryType": 0,
                 "resourceType": "microsoft.operationalinsights/workspaces",
+                "crossComponentResources": [
+                  "{Workspace}"
+                ],
                 "visualization": "tiles",
                 "tileSettings": {
                   "titleContent": {
@@ -255,10 +251,14 @@
                 "version": "KqlItem/1.0",
                 "query": "AzureDiagnostics\r\n| where ResourceProvider == \"MICROSOFT.CDN\" and Category == \"FrontDoorAccessLog\"\r\n| where rulesEngineMatchNames_s <> \"[]\" and rulesEngineMatchNames_s !contains \"Default\"\r\n| where hostName_s in ({hostname})\r\n| project TimeGenerated, IP = clientIp_s, Uri = requestUri_s, rule = rulesEngineMatchNames_s, useragent = userAgent_s,  AFD_Endpoint = endpoint_s, Routing = routingRuleName_s, HTTP_Status = httpStatusCode_s, Origin = originName_s, Origin_URL = originUrl_s, Origin_IP = originIp_s, Client_Country = clientCountry_s, trackingReference_s",
                 "size": 1,
+                "timeContextFromParameter": "TimeRange",
                 "exportFieldName": "trackingReference_s",
                 "exportParameterName": "tracking",
                 "queryType": 0,
-                "resourceType": "microsoft.operationalinsights/workspaces"
+                "resourceType": "microsoft.operationalinsights/workspaces",
+                "crossComponentResources": [
+                  "{Workspace}"
+                ]
               },
               "name": "query - 3"
             },
@@ -270,7 +270,10 @@
                 "size": 0,
                 "timeContextFromParameter": "TimeRange",
                 "queryType": 0,
-                "resourceType": "microsoft.operationalinsights/workspaces"
+                "resourceType": "microsoft.operationalinsights/workspaces",
+                "crossComponentResources": [
+                  "{Workspace}"
+                ]
               },
               "name": "query - 1"
             }
