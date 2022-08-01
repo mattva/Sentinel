@@ -2,12 +2,12 @@
     "definition": {
         "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
         "actions": {
-            "BuilNewIPList": {
+            "BuildNewIPList": {
                 "actions": {
                     "Append_to_array_variable": {
                         "inputs": {
                             "name": "NewIPList",
-                            "value": "@items('BuilNewIPList')?['Address']"
+                            "value": "@items('BuildNewIPList')?['Address']"
                         },
                         "runAfter": {},
                         "type": "AppendToArrayVariable"
@@ -39,6 +39,28 @@
                             ]
                         },
                         "type": "Query"
+                    },
+                    "Put_UpdatedPolicy": {
+                        "inputs": {
+                            "body": {
+                                "body": "@{base64(outputs('UpdatedPolicy'))}",
+                                "method": "PUT",
+                                "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
+                            },
+                            "host": {
+                                "connection": {
+                                    "name": "@parameters('$connections')['webcontents']['connectionId']"
+                                }
+                            },
+                            "method": "post",
+                            "path": "/codeless/InvokeHttp"
+                        },
+                        "runAfter": {
+                            "UpdatedPolicy": [
+                                "Succeeded"
+                            ]
+                        },
+                        "type": "ApiConnection"
                     },
                     "UpdateMatchConditions": {
                         "inputs": {
@@ -90,6 +112,76 @@
                     }
                 },
                 "description": "Check if Policy already has a DefaultDeny Rule, otherwise create it",
+                "else": {
+                    "actions": {
+                        "New_CustomRules": {
+                            "inputs": [
+                                {
+                                    "action": "Block",
+                                    "enabledState": "Enabled",
+                                    "matchConditions": [
+                                        {
+                                            "matchValue": "@variables('NewIPList')",
+                                            "matchVariable": "RemoteAddr",
+                                            "negateCondition": false,
+                                            "operator": "IPMatch",
+                                            "selector": null,
+                                            "transforms": []
+                                        }
+                                    ],
+                                    "name": "DefaultDeny",
+                                    "priority": 999,
+                                    "rateLimitDurationInMinutes": 0,
+                                    "rateLimitThreshold": 0,
+                                    "ruleType": "MatchRule"
+                                }
+                            ],
+                            "runAfter": {},
+                            "type": "Compose"
+                        },
+                        "Put_UpdatedPolicyNew": {
+                            "inputs": {
+                                "body": {
+                                    "body": "@{base64(outputs('UpdatedPolicyNew'))}",
+                                    "method": "PUT",
+                                    "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['webcontents']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/codeless/InvokeHttp"
+                            },
+                            "runAfter": {
+                                "UpdatedPolicyNew": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection"
+                        },
+                        "UpdatedPolicyNew": {
+                            "inputs": {
+                                "location": "@body('Parse_WafPolicy')['location']",
+                                "properties": {
+                                    "customRules": {
+                                        "rules": "@union(body('Parse_WafPolicy')?['properties']?['customRules']?['rules'],outputs('New_customRules'))"
+                                    },
+                                    "managedRules": "@body('Parse_WafPolicy')['properties']['managedRules']",
+                                    "policySettings": "@body('Parse_WafPolicy')['properties']['policySettings']"
+                                },
+                                "sku": "@body('Parse_WafPolicy')['sku']"
+                            },
+                            "runAfter": {
+                                "New_CustomRules": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose"
+                        }
+                    }
+                },
                 "expression": {
                     "and": [
                         {
@@ -134,35 +226,6 @@
                 },
                 "type": "Query"
             },
-            "For_each": {
-                "actions": {
-                    "Add_customRule": {
-                        "inputs": {
-                            "body": {
-                                "body": "@{base64(outputs('UpdatedPolicy'))}",
-                                "method": "PUT",
-                                "url": "https://management.azure.com/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourceGroups/tests/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/AFDWAFPol01?api-version=2020-11-01"
-                            },
-                            "host": {
-                                "connection": {
-                                    "name": "@parameters('$connections')['webcontents']['connectionId']"
-                                }
-                            },
-                            "method": "post",
-                            "path": "/codeless/InvokeHttp"
-                        },
-                        "runAfter": {},
-                        "type": "ApiConnection"
-                    }
-                },
-                "foreach": "@body('Entities_-_Get_IPs')?['IPs']",
-                "runAfter": {
-                    "Condition": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "Foreach"
-            },
             "IPList": {
                 "inputs": {
                     "variables": [
@@ -173,7 +236,58 @@
                     ]
                 },
                 "runAfter": {
+                    "Initialize_variable_3": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "WAFPolicy",
+                            "type": "string",
+                            "value": "AFDWAFPol01"
+                        }
+                    ]
+                },
+                "runAfter": {
                     "Entities_-_Get_IPs": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_2": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "Subscription",
+                            "type": "string",
+                            "value": "35bd369b-2d53-460d-a9cd-a5ddae6dd49d"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "InitializeVariable"
+            },
+            "Initialize_variable_3": {
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ResourceGroup",
+                            "type": "string",
+                            "value": "tests"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable_2": [
                         "Succeeded"
                     ]
                 },
@@ -184,7 +298,7 @@
                 "inputs": {
                     "body": {
                         "method": "GET",
-                        "url": "https://management.azure.com/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourceGroups/tests/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/AFDWAFPol01?api-version=2020-11-01"
+                        "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
                     },
                     "host": {
                         "connection": {
@@ -222,7 +336,6 @@
                 "inputs": {
                     "content": "@body('Invoke_an_HTTP_request')",
                     "schema": {
-                        "$schema": "http://json-schema.org/draft-04/schema#",
                         "properties": {
                             "id": {
                                 "type": "string"
@@ -238,353 +351,143 @@
                                     "customRules": {
                                         "properties": {
                                             "rules": {
-                                                "items": [
-                                                    {
-                                                        "properties": {
-                                                            "action": {
-                                                                "type": "string"
-                                                            },
-                                                            "enabledState": {
-                                                                "type": "string"
-                                                            },
-                                                            "matchConditions": {
-                                                                "items": [
-                                                                    {
-                                                                        "properties": {
-                                                                            "matchValue": {
-                                                                                "items": [
-                                                                                    {
-                                                                                        "type": "string"
-                                                                                    }
-                                                                                ],
-                                                                                "type": "array"
-                                                                            },
-                                                                            "matchVariable": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "negateCondition": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "operator": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "selector": {
-                                                                                "type": "null"
-                                                                            },
-                                                                            "transforms": {
-                                                                                "items": {},
-                                                                                "type": "array"
-                                                                            }
-                                                                        },
-                                                                        "required": [
-                                                                            "matchVariable",
-                                                                            "selector",
-                                                                            "operator",
-                                                                            "negateCondition",
-                                                                            "matchValue",
-                                                                            "transforms"
-                                                                        ],
-                                                                        "type": "object"
-                                                                    }
-                                                                ],
-                                                                "type": "array"
-                                                            },
-                                                            "name": {
-                                                                "type": "string"
-                                                            },
-                                                            "priority": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitDurationInMinutes": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitThreshold": {
-                                                                "type": "integer"
-                                                            },
-                                                            "ruleType": {
-                                                                "type": "string"
-                                                            }
+                                                "items": {
+                                                    "properties": {
+                                                        "action": {
+                                                            "type": "string"
                                                         },
-                                                        "required": [
-                                                            "name",
-                                                            "enabledState",
-                                                            "priority",
-                                                            "ruleType",
-                                                            "rateLimitDurationInMinutes",
-                                                            "rateLimitThreshold",
-                                                            "matchConditions",
-                                                            "action"
-                                                        ],
-                                                        "type": "object"
+                                                        "enabledState": {
+                                                            "type": "string"
+                                                        },
+                                                        "matchConditions": {
+                                                            "items": {
+                                                                "properties": {
+                                                                    "matchValue": {
+                                                                        "items": {
+                                                                            "type": "string"
+                                                                        },
+                                                                        "type": "array"
+                                                                    },
+                                                                    "matchVariable": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "negateCondition": {
+                                                                        "type": "boolean"
+                                                                    },
+                                                                    "operator": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "selector": {},
+                                                                    "transforms": {
+                                                                        "type": "array"
+                                                                    }
+                                                                },
+                                                                "required": [
+                                                                    "matchVariable",
+                                                                    "operator",
+                                                                    "negateCondition",
+                                                                    "matchValue",
+                                                                    "transforms"
+                                                                ],
+                                                                "type": "object"
+                                                            },
+                                                            "type": "array"
+                                                        },
+                                                        "name": {
+                                                            "type": "string"
+                                                        },
+                                                        "priority": {
+                                                            "type": "integer"
+                                                        },
+                                                        "rateLimitDurationInMinutes": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "rateLimitThreshold": {
+                                                            "type": [
+                                                                "integer",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "ruleType": {
+                                                            "type": "string"
+                                                        }
                                                     },
-                                                    {
-                                                        "properties": {
-                                                            "action": {
-                                                                "type": "string"
-                                                            },
-                                                            "enabledState": {
-                                                                "type": "string"
-                                                            },
-                                                            "matchConditions": {
-                                                                "items": [
-                                                                    {
-                                                                        "properties": {
-                                                                            "matchValue": {
-                                                                                "items": [
-                                                                                    {
-                                                                                        "type": "string"
-                                                                                    },
-                                                                                    {
-                                                                                        "type": "string"
-                                                                                    }
-                                                                                ],
-                                                                                "type": "array"
-                                                                            },
-                                                                            "matchVariable": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "negateCondition": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "operator": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "selector": {
-                                                                                "type": "null"
-                                                                            },
-                                                                            "transforms": {
-                                                                                "items": {},
-                                                                                "type": "array"
-                                                                            }
-                                                                        },
-                                                                        "required": [
-                                                                            "matchVariable",
-                                                                            "selector",
-                                                                            "operator",
-                                                                            "negateCondition",
-                                                                            "matchValue",
-                                                                            "transforms"
-                                                                        ],
-                                                                        "type": "object"
-                                                                    }
-                                                                ],
-                                                                "type": "array"
-                                                            },
-                                                            "name": {
-                                                                "type": "string"
-                                                            },
-                                                            "priority": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitDurationInMinutes": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitThreshold": {
-                                                                "type": "integer"
-                                                            },
-                                                            "ruleType": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "name",
-                                                            "enabledState",
-                                                            "priority",
-                                                            "ruleType",
-                                                            "rateLimitDurationInMinutes",
-                                                            "rateLimitThreshold",
-                                                            "matchConditions",
-                                                            "action"
-                                                        ],
-                                                        "type": "object"
-                                                    },
-                                                    {
-                                                        "properties": {
-                                                            "action": {
-                                                                "type": "string"
-                                                            },
-                                                            "enabledState": {
-                                                                "type": "string"
-                                                            },
-                                                            "matchConditions": {
-                                                                "items": [
-                                                                    {
-                                                                        "properties": {
-                                                                            "matchValue": {
-                                                                                "items": {},
-                                                                                "type": "array"
-                                                                            },
-                                                                            "matchVariable": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "negateCondition": {
-                                                                                "type": "boolean"
-                                                                            },
-                                                                            "operator": {
-                                                                                "type": "string"
-                                                                            },
-                                                                            "selector": {
-                                                                                "type": "null"
-                                                                            },
-                                                                            "transforms": {
-                                                                                "items": {},
-                                                                                "type": "array"
-                                                                            }
-                                                                        },
-                                                                        "required": [
-                                                                            "matchVariable",
-                                                                            "selector",
-                                                                            "operator",
-                                                                            "negateCondition",
-                                                                            "matchValue",
-                                                                            "transforms"
-                                                                        ],
-                                                                        "type": "object"
-                                                                    }
-                                                                ],
-                                                                "type": "array"
-                                                            },
-                                                            "name": {
-                                                                "type": "string"
-                                                            },
-                                                            "priority": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitDurationInMinutes": {
-                                                                "type": "integer"
-                                                            },
-                                                            "rateLimitThreshold": {
-                                                                "type": "integer"
-                                                            },
-                                                            "ruleType": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "name",
-                                                            "enabledState",
-                                                            "priority",
-                                                            "ruleType",
-                                                            "rateLimitDurationInMinutes",
-                                                            "rateLimitThreshold",
-                                                            "matchConditions",
-                                                            "action"
-                                                        ],
-                                                        "type": "object"
-                                                    }
-                                                ],
+                                                    "required": [
+                                                        "name",
+                                                        "enabledState",
+                                                        "priority",
+                                                        "ruleType",
+                                                        "rateLimitDurationInMinutes",
+                                                        "rateLimitThreshold",
+                                                        "matchConditions",
+                                                        "action"
+                                                    ],
+                                                    "type": "object"
+                                                },
                                                 "type": "array"
                                             }
                                         },
-                                        "required": [
-                                            "rules"
-                                        ],
                                         "type": "object"
                                     },
                                     "frontendEndpointLinks": {
-                                        "items": {},
                                         "type": "array"
                                     },
                                     "managedRules": {
                                         "properties": {
                                             "managedRuleSets": {
-                                                "items": [
-                                                    {
-                                                        "properties": {
-                                                            "exclusions": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "ruleGroupOverrides": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "ruleSetAction": {
-                                                                "type": "string"
-                                                            },
-                                                            "ruleSetType": {
-                                                                "type": "string"
-                                                            },
-                                                            "ruleSetVersion": {
-                                                                "type": "string"
-                                                            }
+                                                "items": {
+                                                    "properties": {
+                                                        "exclusions": {
+                                                            "type": "array"
                                                         },
-                                                        "required": [
-                                                            "ruleSetType",
-                                                            "ruleSetVersion",
-                                                            "ruleSetAction",
-                                                            "ruleGroupOverrides",
-                                                            "exclusions"
-                                                        ],
-                                                        "type": "object"
+                                                        "ruleGroupOverrides": {
+                                                            "type": "array"
+                                                        },
+                                                        "ruleSetAction": {
+                                                            "type": [
+                                                                "string",
+                                                                "null"
+                                                            ]
+                                                        },
+                                                        "ruleSetType": {
+                                                            "type": "string"
+                                                        },
+                                                        "ruleSetVersion": {
+                                                            "type": "string"
+                                                        }
                                                     },
-                                                    {
-                                                        "properties": {
-                                                            "exclusions": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "ruleGroupOverrides": {
-                                                                "items": {},
-                                                                "type": "array"
-                                                            },
-                                                            "ruleSetAction": {
-                                                                "type": "null"
-                                                            },
-                                                            "ruleSetType": {
-                                                                "type": "string"
-                                                            },
-                                                            "ruleSetVersion": {
-                                                                "type": "string"
-                                                            }
-                                                        },
-                                                        "required": [
-                                                            "ruleSetType",
-                                                            "ruleSetVersion",
-                                                            "ruleSetAction",
-                                                            "ruleGroupOverrides",
-                                                            "exclusions"
-                                                        ],
-                                                        "type": "object"
-                                                    }
-                                                ],
+                                                    "required": [
+                                                        "ruleSetType",
+                                                        "ruleSetVersion",
+                                                        "ruleSetAction",
+                                                        "ruleGroupOverrides",
+                                                        "exclusions"
+                                                    ],
+                                                    "type": "object"
+                                                },
                                                 "type": "array"
                                             }
                                         },
-                                        "required": [
-                                            "managedRuleSets"
-                                        ],
                                         "type": "object"
                                     },
                                     "policySettings": {
                                         "properties": {
-                                            "customBlockResponseBody": {
-                                                "type": "null"
-                                            },
-                                            "customBlockResponseStatusCode": {
-                                                "type": "null"
-                                            },
+                                            "customBlockResponseBody": {},
+                                            "customBlockResponseStatusCode": {},
                                             "enabledState": {
                                                 "type": "string"
                                             },
                                             "mode": {
                                                 "type": "string"
                                             },
-                                            "redirectUrl": {
-                                                "type": "null"
-                                            },
+                                            "redirectUrl": {},
                                             "requestBodyCheck": {
                                                 "type": "string"
                                             }
                                         },
-                                        "required": [
-                                            "enabledState",
-                                            "mode",
-                                            "redirectUrl",
-                                            "customBlockResponseStatusCode",
-                                            "customBlockResponseBody",
-                                            "requestBodyCheck"
-                                        ],
                                         "type": "object"
                                     },
                                     "provisioningState": {
@@ -594,36 +497,12 @@
                                         "type": "string"
                                     },
                                     "routingRuleLinks": {
-                                        "items": {},
                                         "type": "array"
                                     },
                                     "securityPolicyLinks": {
-                                        "items": [
-                                            {
-                                                "properties": {
-                                                    "id": {
-                                                        "type": "string"
-                                                    }
-                                                },
-                                                "required": [
-                                                    "id"
-                                                ],
-                                                "type": "object"
-                                            }
-                                        ],
                                         "type": "array"
                                     }
                                 },
-                                "required": [
-                                    "policySettings",
-                                    "customRules",
-                                    "managedRules",
-                                    "frontendEndpointLinks",
-                                    "securityPolicyLinks",
-                                    "routingRuleLinks",
-                                    "resourceState",
-                                    "provisioningState"
-                                ],
                                 "type": "object"
                             },
                             "sku": {
@@ -632,27 +511,16 @@
                                         "type": "string"
                                     }
                                 },
-                                "required": [
-                                    "name"
-                                ],
                                 "type": "object"
                             },
                             "tags": {
+                                "properties": {},
                                 "type": "object"
                             },
                             "type": {
                                 "type": "string"
                             }
                         },
-                        "required": [
-                            "id",
-                            "type",
-                            "name",
-                            "location",
-                            "tags",
-                            "sku",
-                            "properties"
-                        ],
                         "type": "object"
                     }
                 },
@@ -667,7 +535,7 @@
                 "description": "Rule to create or update",
                 "inputs": "DefaultDeny",
                 "runAfter": {
-                    "BuilNewIPList": [
+                    "BuildNewIPList": [
                         "Succeeded"
                     ]
                 },
