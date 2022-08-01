@@ -45,7 +45,7 @@
                             "body": {
                                 "body": "@{base64(outputs('UpdatedPolicy'))}",
                                 "method": "PUT",
-                                "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
+                                "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
                             },
                             "host": {
                                 "connection": {
@@ -144,7 +144,7 @@
                                 "body": {
                                     "body": "@{base64(outputs('UpdatedPolicyNew'))}",
                                     "method": "PUT",
-                                    "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
+                                    "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
                                 },
                                 "host": {
                                     "connection": {
@@ -236,58 +236,7 @@
                     ]
                 },
                 "runAfter": {
-                    "Initialize_variable_3": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "InitializeVariable"
-            },
-            "Initialize_variable": {
-                "inputs": {
-                    "variables": [
-                        {
-                            "name": "WAFPolicy",
-                            "type": "string",
-                            "value": "AFDWAFPol01"
-                        }
-                    ]
-                },
-                "runAfter": {
                     "Entities_-_Get_IPs": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "InitializeVariable"
-            },
-            "Initialize_variable_2": {
-                "inputs": {
-                    "variables": [
-                        {
-                            "name": "Subscription",
-                            "type": "string",
-                            "value": "{subscription}"
-                        }
-                    ]
-                },
-                "runAfter": {
-                    "Initialize_variable": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "InitializeVariable"
-            },
-            "Initialize_variable_3": {
-                "inputs": {
-                    "variables": [
-                        {
-                            "name": "ResourceGroup",
-                            "type": "string",
-                            "value": "tests"
-                        }
-                    ]
-                },
-                "runAfter": {
-                    "Initialize_variable_2": [
                         "Succeeded"
                     ]
                 },
@@ -298,7 +247,7 @@
                 "inputs": {
                     "body": {
                         "method": "GET",
-                        "url": "https://management.azure.com/subscriptions/@{variables('Subscription')}/resourceGroups/@{variables('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{variables('WAFPolicy')}?api-version=2020-11-01"
+                        "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
                     },
                     "host": {
                         "connection": {
@@ -548,6 +497,18 @@
             "$connections": {
                 "defaultValue": {},
                 "type": "Object"
+            },
+            "ResourceGroup": {
+                "defaultValue": "{ResourceGroup}",
+                "type": "String"
+            },
+            "WAFPolicy": {
+                "defaultValue": "{WAFPolicyName}}",
+                "type": "String"
+            },
+            "subscription": {
+                "defaultValue": "{subscription}",
+                "type": "String"
             }
         },
         "triggers": {
