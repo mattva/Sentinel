@@ -1,8 +1,10 @@
 AddIPToWAFDenyCustomRule
+  
   Parameters:
   * Subscription ID where the Frontdoor WAF policy is defined
   * Resource Group where the Frontdoor WAF policy is defined
   * Name of the FrontDoor WAF Policy
+  
   If exists a custom rule named "DefaultDeny" in the configured Frontdoor WAF Policy, then adds the IP to the match conditions. If the policy doesn't exists, the playbook adds it with priority 999
   
   
