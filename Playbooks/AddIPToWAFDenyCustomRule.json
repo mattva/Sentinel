@@ -265,7 +265,7 @@
                         {
                             "name": "Subscription",
                             "type": "string",
-                            "value": "35bd369b-2d53-460d-a9cd-a5ddae6dd49d"
+                            "value": "{subscription}"
                         }
                     ]
                 },
@@ -571,19 +571,19 @@
         "$connections": {
             "value": {
                 "azuresentinel": {
-                    "connectionId": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourceGroups/RockStar/providers/Microsoft.Web/connections/azuresentinel-AddIPToAllowList",
+                    "connectionId": "/subscriptions/{subscription}/resourceGroups/{ResourceGroup}/providers/Microsoft.Web/connections/azuresentinel-AddIPToAllowList",
                     "connectionName": "azuresentinel-AddIPToAllowList",
                     "connectionProperties": {
                         "authentication": {
                             "type": "ManagedServiceIdentity"
                         }
                     },
-                    "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
+                    "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
                 },
                 "webcontents": {
-                    "connectionId": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/resourceGroups/RockStar/providers/Microsoft.Web/connections/webcontents-1",
+                    "connectionId": "/subscriptions/{subscription}/resourceGroups/{ResourceGroup}/providers/Microsoft.Web/connections/webcontents-1",
                     "connectionName": "webcontents-1",
-                    "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
+                    "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
                 }
             }
         }

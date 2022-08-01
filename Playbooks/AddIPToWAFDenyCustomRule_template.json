@@ -1,0 +1,583 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workflows_AddIPToAllowList_name": {
+            "defaultValue": "AddIPToAllowList",
+            "type": "String"
+        },
+        "connections_azuresentinel_AddIPToAllowList_externalid": {
+            "defaultValue": null,
+            "type": "String"
+        },
+        "connections_webcontents_1_externalid": {
+            "defaultValue": null,
+            "type": "String"
+        }
+    },
+    "variables": {},
+    "resources": [
+        {
+            "type": "Microsoft.Logic/workflows",
+            "apiVersion": "2017-07-01",
+            "name": "[parameters('workflows_AddIPToAllowList_name')]",
+            "location": "westeurope",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "state": "Enabled",
+                "definition": {
+                    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "$connections": {
+                            "defaultValue": {},
+                            "type": "Object"
+                        },
+                        "ResourceGroup": {
+                            "defaultValue": "tests",
+                            "type": "String"
+                        },
+                        "WAFPolicy": {
+                            "defaultValue": "AFDWAFPol01",
+                            "type": "String"
+                        },
+                        "subscription": {
+                            "defaultValue": "35bd369b-2d53-460d-a9cd-a5ddae6dd49d",
+                            "type": "String"
+                        }
+                    },
+                    "triggers": {
+                        "Microsoft_Sentinel_alert": {
+                            "type": "ApiConnectionWebhook",
+                            "inputs": {
+                                "body": {
+                                    "callback_url": "@{listCallbackUrl()}"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                    }
+                                },
+                                "path": "/subscribe"
+                            }
+                        }
+                    },
+                    "actions": {
+                        "BuildNewIPList": {
+                            "foreach": "@body('Entities_-_Get_IPs')?['IPs']",
+                            "actions": {
+                                "Append_to_array_variable": {
+                                    "runAfter": {},
+                                    "type": "AppendToArrayVariable",
+                                    "inputs": {
+                                        "name": "NewIPList",
+                                        "value": "@items('BuildNewIPList')?['Address']"
+                                    }
+                                }
+                            },
+                            "runAfter": {
+                                "NewIPList": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Foreach"
+                        },
+                        "Condition": {
+                            "actions": {
+                                "OriginalRule": {
+                                    "runAfter": {},
+                                    "type": "Compose",
+                                    "inputs": "@first(body('Filter_array'))"
+                                },
+                                "OtherRules": {
+                                    "runAfter": {
+                                        "UpdatedRule": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Query",
+                                    "inputs": {
+                                        "from": "@body('Parse_WafPolicy')['properties']['customRules']['rules']",
+                                        "where": "@not(equals(item()?['name'], outputs('RuleName')))"
+                                    }
+                                },
+                                "Put_UpdatedPolicy": {
+                                    "runAfter": {
+                                        "UpdatedPolicy": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "ApiConnection",
+                                    "inputs": {
+                                        "body": {
+                                            "body": "@{base64(outputs('UpdatedPolicy'))}",
+                                            "method": "PUT",
+                                            "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                                        },
+                                        "host": {
+                                            "connection": {
+                                                "name": "@parameters('$connections')['webcontents']['connectionId']"
+                                            }
+                                        },
+                                        "method": "post",
+                                        "path": "/codeless/InvokeHttp"
+                                    }
+                                },
+                                "UpdateMatchConditions": {
+                                    "runAfter": {
+                                        "OriginalRule": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Select",
+                                    "inputs": {
+                                        "from": "@outputs('OriginalRule')['matchConditions']",
+                                        "select": {
+                                            "matchValue": "@union(item()['matchValue'],variables('NewIPList'))",
+                                            "matchVariable": "@item()['matchVariable']",
+                                            "negateCondition": "@item()['negateCondition']",
+                                            "operator": "@item()['operator']",
+                                            "selector": "@item()['selector']",
+                                            "transforms": "@item()['transforms']"
+                                        }
+                                    }
+                                },
+                                "UpdatedPolicy": {
+                                    "runAfter": {
+                                        "UpdatedRuleAdded": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@setProperty(body('Parse_WafPolicy'),'properties',setProperty(body('Parse_WafPolicy')['properties'],'customRules',setProperty(body('Parse_WafPolicy')['properties']['customRules'], 'rules', outputs('UpdatedRuleAdded'))))"
+                                },
+                                "UpdatedRule": {
+                                    "runAfter": {
+                                        "UpdateMatchConditions": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": [
+                                        "@setProperty(outputs('OriginalRule'), 'matchConditions', body('UpdateMatchConditions'))"
+                                    ]
+                                },
+                                "UpdatedRuleAdded": {
+                                    "runAfter": {
+                                        "OtherRules": [
+                                            "Succeeded"
+                                        ]
+                                    },
+                                    "type": "Compose",
+                                    "inputs": "@union(body('OtherRules'),outputs('UpdatedRule'))"
+                                }
+                            },
+                            "runAfter": {
+                                "Filter_array": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "else": {
+                                "actions": {
+                                    "New_CustomRules": {
+                                        "runAfter": {},
+                                        "type": "Compose",
+                                        "inputs": [
+                                            {
+                                                "action": "Block",
+                                                "enabledState": "Enabled",
+                                                "matchConditions": [
+                                                    {
+                                                        "matchValue": "@variables('NewIPList')",
+                                                        "matchVariable": "RemoteAddr",
+                                                        "negateCondition": false,
+                                                        "operator": "IPMatch",
+                                                        "selector": null,
+                                                        "transforms": []
+                                                    }
+                                                ],
+                                                "name": "DefaultDeny",
+                                                "priority": 999,
+                                                "rateLimitDurationInMinutes": 0,
+                                                "rateLimitThreshold": 0,
+                                                "ruleType": "MatchRule"
+                                            }
+                                        ]
+                                    },
+                                    "Put_UpdatedPolicyNew": {
+                                        "runAfter": {
+                                            "UpdatedPolicyNew": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "ApiConnection",
+                                        "inputs": {
+                                            "body": {
+                                                "body": "@{base64(outputs('UpdatedPolicyNew'))}",
+                                                "method": "PUT",
+                                                "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                                            },
+                                            "host": {
+                                                "connection": {
+                                                    "name": "@parameters('$connections')['webcontents']['connectionId']"
+                                                }
+                                            },
+                                            "method": "post",
+                                            "path": "/codeless/InvokeHttp"
+                                        }
+                                    },
+                                    "UpdatedPolicyNew": {
+                                        "runAfter": {
+                                            "New_CustomRules": [
+                                                "Succeeded"
+                                            ]
+                                        },
+                                        "type": "Compose",
+                                        "inputs": {
+                                            "location": "@body('Parse_WafPolicy')['location']",
+                                            "properties": {
+                                                "customRules": {
+                                                    "rules": "@union(body('Parse_WafPolicy')?['properties']?['customRules']?['rules'],outputs('New_customRules'))"
+                                                },
+                                                "managedRules": "@body('Parse_WafPolicy')['properties']['managedRules']",
+                                                "policySettings": "@body('Parse_WafPolicy')['properties']['policySettings']"
+                                            },
+                                            "sku": "@body('Parse_WafPolicy')['sku']"
+                                        }
+                                    }
+                                }
+                            },
+                            "expression": {
+                                "and": [
+                                    {
+                                        "greater": [
+                                            "@length(body('Filter_array'))",
+                                            0
+                                        ]
+                                    }
+                                ]
+                            },
+                            "type": "If",
+                            "description": "Check if Policy already has a DefaultDeny Rule, otherwise create it"
+                        },
+                        "Entities_-_Get_IPs": {
+                            "runAfter": {},
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": "@triggerBody()?['Entities']",
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['azuresentinel']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/entities/ip"
+                            }
+                        },
+                        "Filter_array": {
+                            "runAfter": {
+                                "Parse_WafPolicy": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Query",
+                            "inputs": {
+                                "from": "@body('Parse_WafPolicy')['properties']['customRules']['rules']",
+                                "where": "@equals(item()?['name'], outputs('RuleName'))"
+                            },
+                            "description": "Get DefaultDeny rule JSON definition, if rule exists"
+                        },
+                        "IPList": {
+                            "runAfter": {
+                                "Entities_-_Get_IPs": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "IPList",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Invoke_an_HTTP_request": {
+                            "runAfter": {
+                                "RuleName": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ApiConnection",
+                            "inputs": {
+                                "body": {
+                                    "method": "GET",
+                                    "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                                },
+                                "host": {
+                                    "connection": {
+                                        "name": "@parameters('$connections')['webcontents']['connectionId']"
+                                    }
+                                },
+                                "method": "post",
+                                "path": "/codeless/InvokeHttp"
+                            },
+                            "description": "Get WAF Policy"
+                        },
+                        "NewIPList": {
+                            "runAfter": {
+                                "IPList": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "InitializeVariable",
+                            "inputs": {
+                                "variables": [
+                                    {
+                                        "name": "NewIPList",
+                                        "type": "array"
+                                    }
+                                ]
+                            }
+                        },
+                        "Parse_WafPolicy": {
+                            "runAfter": {
+                                "Invoke_an_HTTP_request": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "ParseJson",
+                            "inputs": {
+                                "content": "@body('Invoke_an_HTTP_request')",
+                                "schema": {
+                                    "properties": {
+                                        "id": {
+                                            "type": "string"
+                                        },
+                                        "location": {
+                                            "type": "string"
+                                        },
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "properties": {
+                                            "properties": {
+                                                "customRules": {
+                                                    "properties": {
+                                                        "rules": {
+                                                            "items": {
+                                                                "properties": {
+                                                                    "action": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "enabledState": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "matchConditions": {
+                                                                        "items": {
+                                                                            "properties": {
+                                                                                "matchValue": {
+                                                                                    "items": {
+                                                                                        "type": "string"
+                                                                                    },
+                                                                                    "type": "array"
+                                                                                },
+                                                                                "matchVariable": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "negateCondition": {
+                                                                                    "type": "boolean"
+                                                                                },
+                                                                                "operator": {
+                                                                                    "type": "string"
+                                                                                },
+                                                                                "selector": {},
+                                                                                "transforms": {
+                                                                                    "type": "array"
+                                                                                }
+                                                                            },
+                                                                            "required": [
+                                                                                "matchVariable",
+                                                                                "operator",
+                                                                                "negateCondition",
+                                                                                "matchValue",
+                                                                                "transforms"
+                                                                            ],
+                                                                            "type": "object"
+                                                                        },
+                                                                        "type": "array"
+                                                                    },
+                                                                    "name": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "priority": {
+                                                                        "type": "integer"
+                                                                    },
+                                                                    "rateLimitDurationInMinutes": {
+                                                                        "type": [
+                                                                            "integer",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "rateLimitThreshold": {
+                                                                        "type": [
+                                                                            "integer",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "ruleType": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "required": [
+                                                                    "name",
+                                                                    "enabledState",
+                                                                    "priority",
+                                                                    "ruleType",
+                                                                    "rateLimitDurationInMinutes",
+                                                                    "rateLimitThreshold",
+                                                                    "matchConditions",
+                                                                    "action"
+                                                                ],
+                                                                "type": "object"
+                                                            },
+                                                            "type": "array"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "frontendEndpointLinks": {
+                                                    "type": "array"
+                                                },
+                                                "managedRules": {
+                                                    "properties": {
+                                                        "managedRuleSets": {
+                                                            "items": {
+                                                                "properties": {
+                                                                    "exclusions": {
+                                                                        "type": "array"
+                                                                    },
+                                                                    "ruleGroupOverrides": {
+                                                                        "type": "array"
+                                                                    },
+                                                                    "ruleSetAction": {
+                                                                        "type": [
+                                                                            "string",
+                                                                            "null"
+                                                                        ]
+                                                                    },
+                                                                    "ruleSetType": {
+                                                                        "type": "string"
+                                                                    },
+                                                                    "ruleSetVersion": {
+                                                                        "type": "string"
+                                                                    }
+                                                                },
+                                                                "required": [
+                                                                    "ruleSetType",
+                                                                    "ruleSetVersion",
+                                                                    "ruleSetAction",
+                                                                    "ruleGroupOverrides",
+                                                                    "exclusions"
+                                                                ],
+                                                                "type": "object"
+                                                            },
+                                                            "type": "array"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "policySettings": {
+                                                    "properties": {
+                                                        "customBlockResponseBody": {},
+                                                        "customBlockResponseStatusCode": {},
+                                                        "enabledState": {
+                                                            "type": "string"
+                                                        },
+                                                        "mode": {
+                                                            "type": "string"
+                                                        },
+                                                        "redirectUrl": {},
+                                                        "requestBodyCheck": {
+                                                            "type": "string"
+                                                        }
+                                                    },
+                                                    "type": "object"
+                                                },
+                                                "provisioningState": {
+                                                    "type": "string"
+                                                },
+                                                "resourceState": {
+                                                    "type": "string"
+                                                },
+                                                "routingRuleLinks": {
+                                                    "type": "array"
+                                                },
+                                                "securityPolicyLinks": {
+                                                    "type": "array"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "sku": {
+                                            "properties": {
+                                                "name": {
+                                                    "type": "string"
+                                                }
+                                            },
+                                            "type": "object"
+                                        },
+                                        "tags": {
+                                            "properties": {},
+                                            "type": "object"
+                                        },
+                                        "type": {
+                                            "type": "string"
+                                        }
+                                    },
+                                    "type": "object"
+                                }
+                            },
+                            "description": "Get JSON object from WAF policy"
+                        },
+                        "RuleName": {
+                            "runAfter": {
+                                "BuildNewIPList": [
+                                    "Succeeded"
+                                ]
+                            },
+                            "type": "Compose",
+                            "inputs": "DefaultDeny",
+                            "description": "Rule to create or update"
+                        }
+                    },
+                    "outputs": {}
+                },
+                "parameters": {
+                    "$connections": {
+                        "value": {
+                            "azuresentinel": {
+                                "connectionId": "[parameters('connections_azuresentinel_AddIPToAllowList_externalid')]",
+                                "connectionName": "[concat('azuresentinel-', parameters('workflows_AddIPToAllowList_name'))]",
+                                "connectionProperties": {
+                                    "authentication": {
+                                        "type": "ManagedServiceIdentity"
+                                    }
+                                },
+                                "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
+                            },
+                            "webcontents": {
+                                "connectionId": "[parameters('connections_webcontents_1_externalid')]",
+                                "connectionName": "webcontents-1",
+                                "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ]
+}
