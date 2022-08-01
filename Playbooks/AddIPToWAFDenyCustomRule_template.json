@@ -44,7 +44,7 @@
                             "type": "String"
                         },
                         "subscription": {
-                            "defaultValue": "35bd369b-2d53-460d-a9cd-a5ddae6dd49d",
+                            "defaultValue": "{subscription}",
                             "type": "String"
                         }
                     },
@@ -567,12 +567,12 @@
                                         "type": "ManagedServiceIdentity"
                                     }
                                 },
-                                "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
+                                "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
                             },
                             "webcontents": {
                                 "connectionId": "[parameters('connections_webcontents_1_externalid')]",
                                 "connectionName": "webcontents-1",
-                                "id": "/subscriptions/35bd369b-2d53-460d-a9cd-a5ddae6dd49d/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
+                                "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
                             }
                         }
                     }
