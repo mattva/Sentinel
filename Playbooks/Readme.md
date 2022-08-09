@@ -9,6 +9,6 @@ AddIPToWAFDenyCustomRule
   
   
   1. In Sentinel, create a new playbook with Sentinel Alert trigger
-  2. In the Designer, create a new "Invoke an HTTP request" action to create the connector to https://management.azure.com
-  3. copy and paste the json text in the code view editor, being careful to not overwrite the connectors part
+  2. copy and paste the json text in the code view editor, being careful to not overwrite the connectors part
+  3. Give to the Logic App Managed Identity Contributor role on the WAF Policy (or create a new custom role with action 'Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/write')
   4. configure parameters: Subscription ID, Resource GRoup and WAF Policy Name

@@ -40,27 +40,22 @@
                         },
                         "type": "Query"
                     },
-                    "Put_UpdatedPolicy": {
+                    "Put_Updated_Policy": {
                         "inputs": {
-                            "body": {
-                                "body": "@{base64(outputs('UpdatedPolicy'))}",
-                                "method": "PUT",
-                                "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                            "authentication": {
+                                "audience": "https://management.azure.com",
+                                "type": "ManagedServiceIdentity"
                             },
-                            "host": {
-                                "connection": {
-                                    "name": "@parameters('$connections')['webcontents']['connectionId']"
-                                }
-                            },
-                            "method": "post",
-                            "path": "/codeless/InvokeHttp"
+                            "body": "@outputs('UpdatedPolicy')",
+                            "method": "PUT",
+                            "uri": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
                         },
                         "runAfter": {
                             "UpdatedPolicy": [
                                 "Succeeded"
                             ]
                         },
-                        "type": "ApiConnection"
+                        "type": "Http"
                     },
                     "UpdateMatchConditions": {
                         "inputs": {
@@ -139,27 +134,22 @@
                             "runAfter": {},
                             "type": "Compose"
                         },
-                        "Put_UpdatedPolicyNew": {
+                        "Put_Updated_Policy_New": {
                             "inputs": {
-                                "body": {
-                                    "body": "@{base64(outputs('UpdatedPolicyNew'))}",
-                                    "method": "PUT",
-                                    "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                                "authentication": {
+                                    "audience": "https://management.azure.com",
+                                    "type": "ManagedServiceIdentity"
                                 },
-                                "host": {
-                                    "connection": {
-                                        "name": "@parameters('$connections')['webcontents']['connectionId']"
-                                    }
-                                },
-                                "method": "post",
-                                "path": "/codeless/InvokeHttp"
+                                "body": "@outputs('UpdatedPolicyNew')",
+                                "method": "PUT",
+                                "uri": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
                             },
                             "runAfter": {
                                 "UpdatedPolicyNew": [
                                     "Succeeded"
                                 ]
                             },
-                            "type": "ApiConnection"
+                            "type": "Http"
                         },
                         "UpdatedPolicyNew": {
                             "inputs": {
@@ -226,6 +216,22 @@
                 },
                 "type": "Query"
             },
+            "Get_Waf_Policy": {
+                "inputs": {
+                    "authentication": {
+                        "audience": "https://management.azure.com",
+                        "type": "ManagedServiceIdentity"
+                    },
+                    "method": "GET",
+                    "uri": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
+                },
+                "runAfter": {
+                    "RuleName": [
+                        "Succeeded"
+                    ]
+                },
+                "type": "Http"
+            },
             "IPList": {
                 "inputs": {
                     "variables": [
@@ -241,28 +247,6 @@
                     ]
                 },
                 "type": "InitializeVariable"
-            },
-            "Invoke_an_HTTP_request": {
-                "description": "Get WAF Policy",
-                "inputs": {
-                    "body": {
-                        "method": "GET",
-                        "url": "https://management.azure.com/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Network/FrontDoorWebApplicationFirewallPolicies/@{parameters('WAFPolicy')}?api-version=2020-11-01"
-                    },
-                    "host": {
-                        "connection": {
-                            "name": "@parameters('$connections')['webcontents']['connectionId']"
-                        }
-                    },
-                    "method": "post",
-                    "path": "/codeless/InvokeHttp"
-                },
-                "runAfter": {
-                    "RuleName": [
-                        "Succeeded"
-                    ]
-                },
-                "type": "ApiConnection"
             },
             "NewIPList": {
                 "inputs": {
@@ -283,7 +267,7 @@
             "Parse_WafPolicy": {
                 "description": "Get JSON object from WAF policy",
                 "inputs": {
-                    "content": "@body('Invoke_an_HTTP_request')",
+                    "content": "@body('Get_Waf_Policy')",
                     "schema": {
                         "properties": {
                             "id": {
@@ -474,7 +458,7 @@
                     }
                 },
                 "runAfter": {
-                    "Invoke_an_HTTP_request": [
+                    "Get_Waf_Policy": [
                         "Succeeded"
                     ]
                 },
@@ -499,15 +483,15 @@
                 "type": "Object"
             },
             "ResourceGroup": {
-                "defaultValue": "{ResourceGroup}",
+                "defaultValue": "Resource Group Name",
                 "type": "String"
             },
             "WAFPolicy": {
-                "defaultValue": "{WAFPolicyName}}",
+                "defaultValue": "WAF Policy name",
                 "type": "String"
             },
             "subscription": {
-                "defaultValue": "{subscription}",
+                "defaultValue": "subscription ID",
                 "type": "String"
             }
         },
@@ -532,19 +516,14 @@
         "$connections": {
             "value": {
                 "azuresentinel": {
-                    "connectionId": "/subscriptions/{subscription}/resourceGroups/{ResourceGroup}/providers/Microsoft.Web/connections/azuresentinel-AddIPToAllowList",
-                    "connectionName": "azuresentinel-AddIPToAllowList",
+                    "connectionId": "/subscriptions/@{parameters('subscription')}/resourceGroups/@{parameters('ResourceGroup')}/providers/Microsoft.Web/connections/azuresentinel-AddIPToWAFDenyCustomRule",
+                    "connectionName": "azuresentinel-AddIPToWAFDenyCustomRule",
                     "connectionProperties": {
                         "authentication": {
                             "type": "ManagedServiceIdentity"
                         }
                     },
-                    "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/azuresentinel"
-                },
-                "webcontents": {
-                    "connectionId": "/subscriptions/{subscription}/resourceGroups/{ResourceGroup}/providers/Microsoft.Web/connections/webcontents-1",
-                    "connectionName": "webcontents-1",
-                    "id": "/subscriptions/{subscription}/providers/Microsoft.Web/locations/westeurope/managedApis/webcontents"
+                    "id": "/subscriptions/@{parameters('subscription')}/providers/Microsoft.Web/locations/northeurope/managedApis/azuresentinel"
                 }
             }
         }
