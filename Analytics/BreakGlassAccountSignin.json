@@ -1,0 +1,70 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/2d96c029-d5d4-4e26-9ffc-99cdb6358dc9')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/2d96c029-d5d4-4e26-9ffc-99cdb6358dc9')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "[MATTUCLAB] - Break Glass Account sign-in",
+                "description": "Detect sign in from users listed in the AdminAccounts watchlist to Entra ID",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "let breakglassaccounts = _GetWatchlist('AdminAccounts')\n| project AccountAtDomain = tolower(strcat(AccountName,\"@\",FQDN)), AccountName = tolower(AccountName),  DomainSlashAccount = tolower(strcat(NTDomain,\"\\\\\",AccountName));\nbreakglassaccounts\n| join kind=inner ( SigninLogs\n  | extend AccountName = tolower(split(UserPrincipalName, \"@\")[0]), WinSecEventDomain = \"-\"\n  | extend Event = strcat(OperationName, \"-\", ResultType, \"-\", ResultDescription)\n  | project-rename EventType = Event, ServiceOrSystem = AppDisplayName, ClientIP = IPAddress)\n  on AccountName\n\n",
+                "queryFrequency": "PT5H",
+                "queryPeriod": "PT5H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "FullName",
+                                "columnName": "UserDisplayName"
+                            },
+                            {
+                                "identifier": "AadUserId",
+                                "columnName": "UserPrincipalName"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        }
+    ]
+}
