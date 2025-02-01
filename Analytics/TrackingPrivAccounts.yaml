@@ -1,5 +1,5 @@
 id: 431cccd3-2dff-46ee-b34b-61933e45f556
-name: Tracking Privileged Account Rare Activity
+name: '[MATTUCLAB] Tracking Privileged Account Rare Activity'
 description: |
   'This query determines rare activity by a high-value account on a system or service. If any account with rare activity is found, the query retrieves related activity from that account on the same day and summarizes the information.'
 description_detailed: |
