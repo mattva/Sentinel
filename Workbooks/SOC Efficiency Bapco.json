@@ -1476,6 +1476,9 @@
       "type": 9,
       "content": {
         "version": "KqlParameterItem/1.0",
+        "crossComponentResources": [
+          "{Workspaces}"
+        ],
         "parameters": [
           {
             "id": "609e19df-e938-4ec7-aa8d-da6d293956c6",
@@ -1487,7 +1490,7 @@
             "multiSelect": true,
             "quote": "'",
             "delimiter": ",",
-            "query": "SecurityIncident\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize Count=count() by Title\r\n| order by Count\r\n| project Value=Title, Label = strcat(Title, \": \", Count)\r\n",
+            "query": "SecurityIncident\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize Count=count() by Title\r\n| order by Count\r\n| project Value=replace(@'\\\\', @'\\\\\\\\', Title), Label = strcat(Title, \": \", Count)\r\n",
             "crossComponentResources": [
               "{Workspaces}"
             ],
