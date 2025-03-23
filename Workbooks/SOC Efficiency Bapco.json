@@ -1607,7 +1607,7 @@
           }
         }
       },
-      "customWidth": "50",
+      "customWidth": "33",
       "name": "query - 6",
       "styleSettings": {
         "showBorder": true
@@ -1707,8 +1707,102 @@
           }
         }
       },
-      "customWidth": "50",
+      "customWidth": "33",
       "name": "query - 7",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let IncidentData=SecurityIncident\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n//| where Status == 'Closed'\r\n| where Title has_any ({IncidentTitle})\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize arg_max(LastModifiedTime, *) by IncidentNumber\r\n| extend TriageTimeMinutes=datetime_diff('minute',FirstModifiedTime, CreatedTime)\r\n| extend CloseTimeMinutes=datetime_diff('minute',ClosedTime,CreatedTime)\r\n| extend TriagedByAutomation=iff(ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByAutomation=iff(Status=='Closed' and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByXDRCorrelation=iff(Status=='Closed' and ModifiedBy == 'Microsoft Defender XDR - alert correlation',True,False)\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n//| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification);\r\n| extend Classification = case(\r\n    ClosedByXDRCorrelation==true,\r\n      \"XDR\",\r\n    Classification==\"\",\r\n      \"Open\",\r\n    Classification\r\n);\r\nIncidentData \r\n| summarize count() by Title,Classification\r\n| project Title, IncidentCount = count_, Classification\r\n| render columnchart with (kind=stacked) ",
+        "size": 0,
+        "showAnalytics": true,
+        "title": "Incident Title by Closure Classification",
+        "timeContextFromParameter": "TimeRange",
+        "showRefreshButton": true,
+        "exportMultipleValues": true,
+        "exportedParameters": [
+          {
+            "fieldName": "IncidentName",
+            "parameterName": "IncidentName",
+            "parameterType": 1
+          }
+        ],
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspaces}"
+        ],
+        "tileSettings": {
+          "showBorder": false,
+          "titleContent": {
+            "columnMatch": "TimeInterval",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "IncidentCount",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            },
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "maximumSignificantDigits": 3,
+                "maximumFractionDigits": 2
+              }
+            }
+          }
+        },
+        "graphSettings": {
+          "type": 0,
+          "topContent": {
+            "columnMatch": "TimeInterval",
+            "formatter": 1
+          },
+          "centerContent": {
+            "columnMatch": "IncidentCount",
+            "formatter": 1,
+            "numberFormat": {
+              "unit": 17,
+              "options": {
+                "maximumSignificantDigits": 3,
+                "maximumFractionDigits": 2
+              }
+            }
+          }
+        },
+        "chartSettings": {
+          "xAxis": "Title",
+          "group": "Classification",
+          "createOtherGroup": null,
+          "showLegend": true,
+          "xSettings": {
+            "label": "Incident Title"
+          },
+          "ySettings": {
+            "label": "Number of incidents"
+          }
+        },
+        "mapSettings": {
+          "locInfo": "LatLong",
+          "sizeSettings": "IncidentCount",
+          "sizeAggregation": "Sum",
+          "legendMetric": "IncidentCount",
+          "legendAggregation": "Sum",
+          "itemColorSettings": {
+            "type": "heatmap",
+            "colorAggregation": "Sum",
+            "nodeColorField": "IncidentCount",
+            "heatmapPalette": "greenRed"
+          }
+        }
+      },
+      "customWidth": "33",
+      "name": "query - 7 - Copy",
       "styleSettings": {
         "showBorder": true
       }
@@ -1836,15 +1930,15 @@
           ],
           "sortBy": [
             {
-              "itemKey": "IncidentNumber",
-              "sortOrder": 1
+              "itemKey": "ClosedByXDRCorrelation",
+              "sortOrder": 2
             }
           ]
         },
         "sortBy": [
           {
-            "itemKey": "IncidentNumber",
-            "sortOrder": 1
+            "itemKey": "ClosedByXDRCorrelation",
+            "sortOrder": 2
           }
         ]
       },
