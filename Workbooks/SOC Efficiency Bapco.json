@@ -154,7 +154,7 @@
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "value": [
-              "value::all"
+              "High"
             ]
           },
           {
@@ -1498,6 +1498,7 @@
               "additionalResourceOptions": [
                 "value::all"
               ],
+              "selectAllValue": "*",
               "showDefault": false
             },
             "timeContext": {
@@ -1567,7 +1568,57 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet IncidentData=SecurityIncident\r\n| where Title has_any ({IncidentTitle})\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize arg_max(LastModifiedTime, *) by IncidentNumber\r\n| extend TriageTimeMinutes=datetime_diff('minute',FirstModifiedTime, CreatedTime)\r\n| extend CloseTimeMinutes=datetime_diff('minute',ClosedTime,CreatedTime)\r\n| extend TriagedByAutomation=iff(ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByAutomation=iff(Status=='Closed' and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByXDRCorrelation=iff(Status=='Closed' and ModifiedBy =='Microsoft Defender XDR - alert correlation',True,False)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by TriageTimeMinutes,Classification,ClosedByAutomation\r\n| extend TimeInterval = case(\r\n    TriageTimeMinutes <= 5,\r\n      \"00-05 minutes\",\r\n    TriageTimeMinutes > 5 and TriageTimeMinutes <= 10,\r\n      \"05-10 minutes\",\r\n    TriageTimeMinutes > 10 and TriageTimeMinutes <= 15,\r\n      \"10-15 minutes\",\r\n    TriageTimeMinutes > 15 and TriageTimeMinutes <= 20,\r\n      \"15-20 minutes\",\r\n    TriageTimeMinutes > 20 and TriageTimeMinutes <= 25,\r\n      \"20-25 minutes\",\r\n    TriageTimeMinutes > 25 and TriageTimeMinutes <= 30,\r\n      \"25-30 minutes\",\r\n    TriageTimeMinutes > 30,\r\n       \"more than 30 minutes\",\r\n    \"n.a.\"\r\n);\r\n// Join with the predefined time intervals to ensure all intervals are represented\r\nTimeIntervals\r\n| join kind=leftouter IncidentData on TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AcknowledgeTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AcknowledgeTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+        "size": 0,
+        "showAnalytics": true,
+        "title": "Acknowledge distribution time",
+        "timeContextFromParameter": "TimeRange",
+        "exportMultipleValues": true,
+        "exportedParameters": [
+          {
+            "fieldName": "IncidentId",
+            "parameterName": "IncidentId",
+            "parameterType": 1
+          }
+        ],
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspaces}"
+        ],
+        "chartSettings": {
+          "xAxis": "TimeInterval",
+          "yAxis": [
+            "IncidentCount"
+          ],
+          "group": "Classification",
+          "createOtherGroup": null,
+          "showLegend": true,
+          "seriesLabelSettings": [
+            {
+              "seriesName": "<empty>",
+              "label": "Open"
+            }
+          ],
+          "xSettings": {
+            "label": "Time taken to triage"
+          },
+          "ySettings": {
+            "label": "Incidents"
+          }
+        }
+      },
+      "customWidth": "33",
+      "name": "query - 6 - Copy",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by TriageTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.TriageTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
         "size": 0,
         "showAnalytics": true,
         "title": "Triage distribution time",
@@ -1617,7 +1668,57 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "//Time to resolve\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet IncidentData=SecurityIncident\r\n//| where Status == 'Closed'\r\n| where Title has_any ({IncidentTitle})\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize arg_max(LastModifiedTime, *) by IncidentNumber\r\n| extend TriageTimeMinutes=datetime_diff('minute',FirstModifiedTime, CreatedTime)\r\n| extend CloseTimeMinutes=datetime_diff('minute',ClosedTime,CreatedTime)\r\n| extend TriagedByAutomation=iff(ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByAutomation=iff(Status=='Closed' and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByXDRCorrelation=iff(Status=='Closed' and ModifiedBy == 'Microsoft Defender XDR - alert correlation',True,False)\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by CloseTimeMinutes,Classification,ClosedByAutomation,IncidentName\r\n| extend TimeInterval = case(\r\n    CloseTimeMinutes <= 5,\r\n      \"00-05 minutes\",\r\n    CloseTimeMinutes > 5 and CloseTimeMinutes <= 10,\r\n      \"05-10 minutes\",\r\n    CloseTimeMinutes > 10 and CloseTimeMinutes <= 15,\r\n      \"10-15 minutes\",\r\n    CloseTimeMinutes > 15 and CloseTimeMinutes <= 20,\r\n      \"15-20 minutes\",\r\n    CloseTimeMinutes > 20 and CloseTimeMinutes <= 25,\r\n      \"20-25 minutes\",\r\n    CloseTimeMinutes > 25 and CloseTimeMinutes <= 30,\r\n      \"25-30 minutes\",\r\n    CloseTimeMinutes > 30,\r\n       \"more than 30 minutes\",\r\n    \"n.a.\"\r\n);\r\n// Join with the predefined time intervals to ensure all intervals are represented\r\nTimeIntervals\r\n| join kind=leftouter IncidentData on TimeInterval\r\n| order by TimeInterval asc\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification,IncidentName\r\n| render columnchart with (kind=stacked) ",
+        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AnalysisTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AnalysisTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+        "size": 0,
+        "showAnalytics": true,
+        "title": "Analysis distribution time",
+        "timeContextFromParameter": "TimeRange",
+        "exportMultipleValues": true,
+        "exportedParameters": [
+          {
+            "fieldName": "IncidentId",
+            "parameterName": "IncidentId",
+            "parameterType": 1
+          }
+        ],
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspaces}"
+        ],
+        "chartSettings": {
+          "xAxis": "TimeInterval",
+          "yAxis": [
+            "IncidentCount"
+          ],
+          "group": "Classification",
+          "createOtherGroup": null,
+          "showLegend": true,
+          "seriesLabelSettings": [
+            {
+              "seriesName": "<empty>",
+              "label": "Open"
+            }
+          ],
+          "xSettings": {
+            "label": "Time taken to triage"
+          },
+          "ySettings": {
+            "label": "Incidents"
+          }
+        }
+      },
+      "customWidth": "33",
+      "name": "query - 6 - Copy",
+      "styleSettings": {
+        "showBorder": true
+      }
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| summarize IncidentCount=count() by CloseTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.CloseTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
         "size": 0,
         "showAnalytics": true,
         "title": "Closure distribution time",
@@ -1717,7 +1818,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "let IncidentData=SecurityIncident\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n//| where Status == 'Closed'\r\n| where Title has_any ({IncidentTitle})\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize arg_max(LastModifiedTime, *) by IncidentNumber\r\n| extend TriageTimeMinutes=datetime_diff('minute',FirstModifiedTime, CreatedTime)\r\n| extend CloseTimeMinutes=datetime_diff('minute',ClosedTime,CreatedTime)\r\n| extend TriagedByAutomation=iff(ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByAutomation=iff(Status=='Closed' and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)\r\n| extend ClosedByXDRCorrelation=iff(Status=='Closed' and ModifiedBy == 'Microsoft Defender XDR - alert correlation',True,False)\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n//| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification);\r\n| extend Classification = case(\r\n    ClosedByXDRCorrelation==true,\r\n      \"XDR\",\r\n    Classification==\"\",\r\n      \"Open\",\r\n    Classification\r\n);\r\nIncidentData \r\n| summarize count() by Title,Classification\r\n| project Title, IncidentCount = count_, Classification\r\n| order by IncidentCount desc\r\n| render columnchart with (kind=stacked) ",
+        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize count() by Title,Classification\r\n| project Title, IncidentCount = count_, Classification\r\n| order by IncidentCount desc\r\n| render columnchart with (kind=stacked) ",
         "size": 0,
         "showAnalytics": true,
         "title": "Incident Title by Closure Classification",
@@ -1811,7 +1912,7 @@
       "type": 3,
       "content": {
         "version": "KqlItem/1.0",
-        "query": "let IncidentData=SecurityIncident\r\n    | where Title has_any ({IncidentTitle})\r\n    | where Severity in ({Severity}) or \"*\" in ('*')\r\n    | extend Tactics = todynamic(AdditionalData.tactics)\r\n    | where Tactics in ({Tactics}) or \"*\" in ('*')\r\n    | extend Owner = todynamic(Owner.assignedTo) \r\n    | where Owner in ({Owner}) or \"*\" in ('*')\r\n    | extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n    | where Product in ({Product}) or \"*\" in ('*')\r\n    | extend TriageTimeMinutes=datetime_diff('minute', FirstModifiedTime, CreatedTime)\r\n    | extend CloseTimeMinutes=datetime_diff('minute', ClosedTime, CreatedTime);\r\nlet ClosedBy=SecurityIncident\r\n    | summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n    | where Status==\"Closed\"\r\n    | extend ClosedByAutomation=iff(Status == 'Closed' and ModifiedBy has_any ('playbook', 'automation rule', 'External application'), True, False)\r\n    | extend ClosedByXDRCorrelation=iff(Status == 'Closed' and ModifiedBy == 'Microsoft Defender XDR - alert correlation', True, False)\r\n    | project IncidentNumber,ClosedByAutomation,ClosedByXDRCorrelation;\r\nlet AutomationUsed=SecurityIncident\r\n    | summarize AllModifiedBy = make_list(ModifiedBy) by IncidentNumber\r\n    | extend AutomationUsed = iff(AllModifiedBy has_any ('playbook', 'automation rule', 'External application'), 'yes', 'no');\r\nlet AnalyticRules = (\r\n    SentinelHealth\r\n    | where SentinelResourceType == \"Analytics Rule\"\r\n    | extend SentinelResourceId = tostring(ExtendedProperties.RuleId)\r\n    | summarize arg_max(TimeGenerated, *) by SentinelResourceId\r\n    );\r\nlet AllRules=SecurityIncident\r\n    | summarize arg_max(TimeGenerated, *) by IncidentNumber\r\n    | mv-expand RelatedAnalyticRuleIds\r\n    | extend RelatedAnalyticRuleIds = tostring(RelatedAnalyticRuleIds)\r\n    | join kind=leftouter AnalyticRules on $left.RelatedAnalyticRuleIds == $right.SentinelResourceId\r\n    | summarize AllRules = make_list(SentinelResourceName) by IncidentNumber;\r\nIncidentData\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| join kind=leftouter AllRules on IncidentNumber\r\n| join AutomationUsed on IncidentNumber\r\n| join kind=leftouter ClosedBy on IncidentNumber\r\n//| project IncidentNumber,Title,CreatedTime,Status,Severity,Owner,AllModifiedBy,Product,Tactics,IncidentName,AutomationUsed\r\n//| where ClosedByXDRCorrelation == false\r\n| where \"\" == \"\" or ClosedByAutomation == \"\"\r\n| project\r\n    IncidentNumber,\r\n    CreatedTime,\r\n    FirstModifiedTime,\r\n    LastModifiedTime,\r\n    AutomationUsed,\r\n    Title,\r\n    Severity,\r\n    Status,\r\n    Classification,\r\n    Owner,\r\n    Tactics,\r\n    AllModifiedBy,\r\n    Product,\r\n    ClosedByAutomation,\r\n    ClosedByXDRCorrelation,\r\n    IncidentUrl,\r\n    RelatedAnalyticRuleIds,\r\n    ProviderName,\r\n    AllRules\r\n| order by IncidentNumber asc\r\n",
+        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nlet AutomationUsed=SecurityIncident\r\n    | summarize AllModifiedBy = make_list(ModifiedBy) by IncidentNumber\r\n    | extend AutomationUsed = iff(AllModifiedBy has_any ('playbook', 'automation rule', 'External application'), 'yes', 'no');\r\nlet AnalyticRules = (\r\n    SentinelHealth\r\n    | where SentinelResourceType == \"Analytics Rule\"\r\n    | extend SentinelResourceId = tostring(ExtendedProperties.RuleId)\r\n    | summarize arg_max(TimeGenerated, *) by SentinelResourceId\r\n    );\r\nlet AllRules=SecurityIncident\r\n    | summarize arg_max(TimeGenerated, *) by IncidentNumber\r\n    | mv-expand RelatedAnalyticRuleIds\r\n    | extend RelatedAnalyticRuleIds = tostring(RelatedAnalyticRuleIds)\r\n    | join kind=leftouter AnalyticRules on $left.RelatedAnalyticRuleIds == $right.SentinelResourceId\r\n    | summarize AllRules = make_list(SentinelResourceName) by IncidentNumber;\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| join kind=leftouter AllRules on IncidentNumber\r\n| join AutomationUsed on IncidentNumber\r\n//| join kind=leftouter ClosedBy on IncidentNumber\r\n//| project IncidentNumber,Title,CreatedTime,Status,Severity,Owner,AllModifiedBy,Product,Tactics,IncidentName,AutomationUsed\r\n//| where ClosedByXDRCorrelation == false\r\n| where \"\" == \"\" or ClosedByAutomation == \"\"\r\n| project\r\n    IncidentNumber,\r\n    CreatedTime,\r\n    FirstModifiedTime,\r\n    LastModifiedTime,\r\n    TriageTime,\r\n    AcknowledgeTime,\r\n    ClosedTime,\r\n    AnalysisTimeMinutes,\r\n    AutomationUsed,\r\n    Title,\r\n    Severity,\r\n    Status,\r\n    Classification,\r\n    Owner,\r\n    Tactics,\r\n    AllModifiedBy,\r\n    ProductName,\r\n    ClosedByAutomation,\r\n    ClosedByXDRCorrelation,\r\n    IncidentUrl,\r\n    RelatedAnalyticRuleIds,\r\n    ProviderName,\r\n    AllRules\r\n| order by IncidentNumber asc\r\n",
         "size": 0,
         "title": "Incident Details",
         "timeContextFromParameter": "TimeRange",
@@ -1828,6 +1929,22 @@
             },
             {
               "columnMatch": "FirstModifiedTime",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "TriageTime",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "AcknowledgeTime",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "ClosedTime",
+              "formatter": 5
+            },
+            {
+              "columnMatch": "AnalysisTimeMinutes",
               "formatter": 5
             },
             {
@@ -1943,6 +2060,35 @@
         ]
       },
       "name": "query - 8"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n",
+        "size": 0,
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspaces}"
+        ],
+        "gridSettings": {
+          "sortBy": [
+            {
+              "itemKey": "Owner",
+              "sortOrder": 2
+            }
+          ]
+        },
+        "sortBy": [
+          {
+            "itemKey": "Owner",
+            "sortOrder": 2
+          }
+        ]
+      },
+      "name": "query - 10"
     }
   ],
   "fromTemplateId": "sentinel-UserWorkbook",
