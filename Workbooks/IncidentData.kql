@@ -1,0 +1,134 @@
+// copy the query in log analytics and save as function with following parameters:
+// function name: IncidentData
+// function parameters: "startTime:datetime, endTime:datetime, IncidentTitle:dynamic = dynamic(['']), SeverityLevel:dynamic = dynamic(['']), Tactics:dynamic = dynamic(['']), CurrentOwner:dynamic = dynamic(['']), Product:dynamic = dynamic([''])"
+// you may pre-reate the function with the following command:
+//      $resourceGroup =  "rg-sent-adv-hunting"
+//      $workspaceName = "sent-adv-hunting"  # Replace with the name of the new workspace
+//      $Category = "SOC"
+//      $displayName = "IncidentData"
+//      $name = "IncidentData"
+//      $functionAlias = "IncidentData"
+//      $functionParameters = "startTime:datetime, endTime:datetime, IncidentTitle:dynamic = dynamic(['']), SeverityLevel:dynamic = dynamic(['']), Tactics:dynamic = dynamic(['']), CurrentOwner:dynamic = dynamic(['']), Product:dynamic = dynamic([''])"
+//      az monitor log-analytics workspace saved-search create --resource-group $resourceGroup --workspace-name $workspaceName --category $category --display-name $displayName --name $name --fp "$functionParameters" --fa $functionAlias -q "//placeholder"
+//
+//
+//acknowledge time is the first time an owner is assigned
+let AcknowledgeTime=SecurityIncident
+| where TimeGenerated >= startTime and TimeGenerated <= endTime
+| where Owner.assignedTo <> ""
+| summarize arg_min(TimeGenerated,*) by IncidentNumber
+| extend AcknowledgeTime=TimeGenerated
+| extend AcknowledgeTimeMinutes=datetime_diff('minute',AcknowledgeTime,CreatedTime)
+| extend AcknowledgedByAutomation=iff(ModifiedBy has_any ('playbook','automation rule','External application'),True,False)
+| extend AcknowledgeTimeInterval = case(
+    AcknowledgeTimeMinutes <= 5,
+      "00-05 minutes",
+    AcknowledgeTimeMinutes > 5 and AcknowledgeTimeMinutes <= 10,
+      "05-10 minutes",
+    AcknowledgeTimeMinutes > 10 and AcknowledgeTimeMinutes <= 15,
+      "10-15 minutes",
+    AcknowledgeTimeMinutes > 15 and AcknowledgeTimeMinutes <= 20,
+      "15-20 minutes",
+    AcknowledgeTimeMinutes > 20 and AcknowledgeTimeMinutes <= 25,
+      "20-25 minutes",
+    AcknowledgeTimeMinutes > 25 and AcknowledgeTimeMinutes <= 30,
+      "25-30 minutes",
+    AcknowledgeTimeMinutes > 30,
+       "more than 30 minutes",
+    "n.a."
+)
+| project AcknowledgeTime,AcknowledgedByAutomation,AcknowledgeTimeInterval,AcknowledgeTimeMinutes,IncidentNumber;
+SecurityIncident
+//filter based on function parameters
+| where TimeGenerated >= startTime and TimeGenerated <= endTime
+| where Title has_any (todynamic(IncidentTitle)) or "*" in (todynamic(IncidentTitle))
+| where Severity has_any (todynamic(SeverityLevel)) or "*" in (todynamic(SeverityLevel))
+| extend ProductName = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) 
+| where ProductName has_any (todynamic(Product)) or "*" in (todynamic(Product))
+| extend TacticsUsed = todynamic(AdditionalData.tactics)
+| where TacticsUsed has_any (Tactics) or "*" in (todynamic(Tactics))
+| extend Owner = iff(todynamic(Owner.assignedTo)=="","Unassigned",todynamic(Owner.assignedTo))
+| where Owner has_any (CurrentOwner) or "*" in (todynamic(CurrentOwner))
+// closure logic: take the first closure time
+// get last modification
+| where abs(datetime_diff('second',ClosedTime,LastModifiedTime)) <=5 or isnull(ClosedTime)
+| summarize arg_max(LastModifiedTime, *) by IncidentNumber
+| extend CloseTimeMinutes=datetime_diff('minute',ClosedTime,CreatedTime)
+| extend ClosedByAutomation=iff(Status=='Closed' and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)
+| extend ClosedByXDRCorrelation=iff(Status=='Closed' and ModifiedBy =='Microsoft Defender XDR - alert correlation',True,False)
+| extend Classification = case(
+    ClosedByXDRCorrelation==true,   
+      "XDR",
+    Classification=="",
+      "Open",
+    Classification
+    )
+| extend CloseTimeInterval = case(
+    CloseTimeMinutes <= 5,
+      "00-05 minutes",
+    CloseTimeMinutes > 5 and CloseTimeMinutes <= 10,
+      "05-10 minutes",
+    CloseTimeMinutes > 10 and CloseTimeMinutes <= 15,
+      "10-15 minutes",
+    CloseTimeMinutes > 15 and CloseTimeMinutes <= 20,
+      "15-20 minutes",
+    CloseTimeMinutes > 20 and CloseTimeMinutes <= 25,
+      "20-25 minutes",
+    CloseTimeMinutes > 25 and CloseTimeMinutes <= 30,
+      "25-30 minutes",
+    CloseTimeMinutes > 30,
+       "more than 30 minutes",
+    "n.a."
+)
+//add AknowledgeTime
+| join kind=leftouter AcknowledgeTime on IncidentNumber
+| extend AcknowledgeTimeInterval=iff(isnull(AcknowledgeTime),"n.a.",AcknowledgeTimeInterval)
+| project-away IncidentNumber1
+//join with SecurityIncident to take Triage info
+| join kind=rightouter SecurityIncident on IncidentNumber
+//| extend AcknowledgeTime=iff(AcknowledgeTime != "",AcknowledgeTime,startTime)
+//Triage logic: minimum TimeGenerated with status Active after AcknowledgeTime
+| where (TimeGenerated1 > AcknowledgeTime and Status1=="Active") or isnull(AcknowledgeTime)
+| summarize arg_min(TimeGenerated1,*) by IncidentNumber
+| extend TriageTime=iff(isnull(AcknowledgeTime),TimeGenerated1,AcknowledgeTime)
+//clean up resulting table
+| project-away *1
+| extend TriageTimeMinutes=datetime_diff('minute',TriageTime, AcknowledgeTime)
+| extend TriagedByAutomation=iff(isnotnull(AcknowledgeTime) and ModifiedBy has_any ('playbook','automation rule','External application'),True,False)
+| extend TriageTimeInterval = case(
+    TriageTimeMinutes <= 5,
+      "00-05 minutes",
+    TriageTimeMinutes > 5 and TriageTimeMinutes <= 10,
+      "05-10 minutes",
+    TriageTimeMinutes > 10 and TriageTimeMinutes <= 15,
+      "10-15 minutes",
+    TriageTimeMinutes > 15 and TriageTimeMinutes <= 20,
+      "15-20 minutes",
+    TriageTimeMinutes > 20 and TriageTimeMinutes <= 25,
+      "20-25 minutes",
+    TriageTimeMinutes > 25 and TriageTimeMinutes <= 30,
+      "25-30 minutes",
+    TriageTimeMinutes > 30,
+       "more than 30 minutes",
+    "n.a."
+)
+//Analysis Logic: time difference between closure and triage time
+| extend AnalysisTimeMinutes=datetime_diff('minute',ClosedTime,TriageTime)
+| extend AnalysisTimeInterval = case(
+    AnalysisTimeMinutes <= 5,
+      "00-05 minutes",
+    AnalysisTimeMinutes > 5 and AnalysisTimeMinutes <= 10,
+      "05-10 minutes",
+    AnalysisTimeMinutes > 10 and AnalysisTimeMinutes <= 15,
+      "10-15 minutes",
+    AnalysisTimeMinutes > 15 and AnalysisTimeMinutes <= 20,
+      "15-20 minutes",
+    AnalysisTimeMinutes > 20 and AnalysisTimeMinutes <= 25,
+      "20-25 minutes",
+    AnalysisTimeMinutes > 25 and AnalysisTimeMinutes <= 30,
+      "25-30 minutes",
+    AnalysisTimeMinutes > 30,
+       "more than 30 minutes",
+    "n.a."
+)
+| where isnotnull(IncidentNumber)
