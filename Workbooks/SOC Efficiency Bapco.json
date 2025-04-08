@@ -127,7 +127,7 @@
               "allowCustom": true
             },
             "value": {
-              "durationMs": 7776000000
+              "durationMs": 2592000000
             }
           },
           {
@@ -154,7 +154,7 @@
             "queryType": 0,
             "resourceType": "microsoft.operationalinsights/workspaces",
             "value": [
-              "High"
+              "value::all"
             ]
           },
           {
@@ -1463,7 +1463,634 @@
         "groupType": "editable",
         "title": "Rule Analysis",
         "expandable": true,
-        "items": []
+        "expanded": true,
+        "loadType": "always",
+        "items": [
+          {
+            "type": 1,
+            "content": {
+              "json": "**Incident flow**<br>\r\nCreation -> Assign -> Set Active -> Close<BR>\r\n<br>\r\n**Time definitions:** <br>\r\nAcknowledege: AssignTime - CreationTime <br>\r\nTriage: SetActiveTime - AcknowledegeTime <br>\r\nAnalysis: ClosureTime - TriageTime <br>\r\n<br>\r\n**Note:** \r\nClosureTime is the time difference between the **first** closure and the creation time <br>\r\n\r\n\r\n"
+            },
+            "name": "text - 0"
+          },
+          {
+            "type": 9,
+            "content": {
+              "version": "KqlParameterItem/1.0",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "parameters": [
+                {
+                  "id": "609e19df-e938-4ec7-aa8d-da6d293956c6",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "IncidentTitle",
+                  "label": "Incident Title",
+                  "type": 2,
+                  "isRequired": true,
+                  "multiSelect": true,
+                  "quote": "'",
+                  "delimiter": ",",
+                  "query": "SecurityIncident\r\n| where TimeGenerated >= {TimeRange:start} and TimeGenerated <= {TimeRange:end}\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize Count=count() by Title\r\n| order by Count\r\n| project Value=replace(@'\\\\', @'\\\\\\\\', Title), Label = strcat(Title, \": \", Count)\r\n",
+                  "crossComponentResources": [
+                    "{Workspaces}"
+                  ],
+                  "typeSettings": {
+                    "additionalResourceOptions": [
+                      "value::all"
+                    ],
+                    "selectAllValue": "*",
+                    "showDefault": false
+                  },
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces",
+                  "value": [
+                    "value::all"
+                  ]
+                },
+                {
+                  "id": "334e5ca8-c2f4-4587-b715-b0dfb893a574",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "AutomatedTriage",
+                  "label": "Automation in Triage?",
+                  "type": 10,
+                  "typeSettings": {
+                    "additionalResourceOptions": []
+                  },
+                  "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "value": null
+                },
+                {
+                  "id": "2fc6c56a-3db0-4fba-86d5-41d2171b3cdd",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "AutomatedClosure",
+                  "label": "Automation in Closure?",
+                  "type": 10,
+                  "typeSettings": {
+                    "additionalResourceOptions": []
+                  },
+                  "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "value": null
+                },
+                {
+                  "id": "eb8454df-71b1-4e77-a897-865e486cf917",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "ClosedXDR",
+                  "label": "Closed by XDR",
+                  "type": 10,
+                  "typeSettings": {
+                    "additionalResourceOptions": [],
+                    "showDefault": false
+                  },
+                  "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
+                  "timeContext": {
+                    "durationMs": 7776000000
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "value": null
+                },
+                {
+                  "id": "11dc86a8-10fe-4ffb-a321-701fbde8adf0",
+                  "version": "KqlParameterItem/1.0",
+                  "name": "FilteredIncidents",
+                  "label": "Number of Filtered Incidents",
+                  "type": 1,
+                  "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nlet AutomationUsed=SecurityIncident\r\n    | summarize AllModifiedBy = make_list(ModifiedBy) by IncidentNumber\r\n    | extend AutomationUsed = iff(AllModifiedBy has_any ('playbook', 'automation rule', 'External application'), 'yes', 'no');\r\nlet AnalyticRules = (\r\n    SentinelHealth\r\n    | where SentinelResourceType == \"Analytics Rule\"\r\n    | extend SentinelResourceId = tostring(ExtendedProperties.RuleId)\r\n    | summarize arg_max(TimeGenerated, *) by SentinelResourceId\r\n    );\r\nlet AllRules=SecurityIncident\r\n    | summarize arg_max(TimeGenerated, *) by IncidentNumber\r\n    | mv-expand RelatedAnalyticRuleIds\r\n    | extend RelatedAnalyticRuleIds = tostring(RelatedAnalyticRuleIds)\r\n    | join kind=leftouter AnalyticRules on $left.RelatedAnalyticRuleIds == $right.SentinelResourceId\r\n    | summarize AllRules = make_list(SentinelResourceName) by IncidentNumber;\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| join kind=leftouter AllRules on IncidentNumber\r\n| join AutomationUsed on IncidentNumber\r\n//| join kind=leftouter ClosedBy on IncidentNumber\r\n//| project IncidentNumber,Title,CreatedTime,Status,Severity,Owner,AllModifiedBy,Product,Tactics,IncidentName,AutomationUsed\r\n//| where ClosedByXDRCorrelation == false\r\n| where \"\" == \"\" or ClosedByAutomation == \"\"\r\n| project\r\n    IncidentNumber,\r\n    CreatedTime,\r\n    FirstModifiedTime,\r\n    LastModifiedTime,\r\n    TriageTime,\r\n    AcknowledgeTime,\r\n    ClosedTime,\r\n    AnalysisTimeMinutes,\r\n    AutomationUsed,\r\n    Title,\r\n    Severity,\r\n    Status,\r\n    Classification,\r\n    Owner,\r\n    Tactics,\r\n    AllModifiedBy,\r\n    ProductName,\r\n    TriagedByAutomation,\r\n    ClosedByAutomation,\r\n    ClosedByXDRCorrelation,\r\n    IncidentUrl,\r\n    RelatedAnalyticRuleIds,\r\n    ProviderName,\r\n    AllRules\r\n| order by IncidentNumber asc\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| summarize incidents=count()",
+                  "crossComponentResources": [
+                    "{Workspaces}"
+                  ],
+                  "isHiddenWhenLocked": true,
+                  "timeContext": {
+                    "durationMs": 0
+                  },
+                  "timeContextFromParameter": "TimeRange",
+                  "queryType": 0,
+                  "resourceType": "microsoft.operationalinsights/workspaces"
+                }
+              ],
+              "style": "pills",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces"
+            },
+            "name": "parameters - 5"
+          },
+          {
+            "type": 1,
+            "content": {
+              "json": "Number of filtered Incidents: {FilteredIncidents}"
+            },
+            "name": "text - 8"
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AcknowledgeTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AcknowledgeTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Acknowledge distribution time - time between creation and first assignation",
+              "timeContextFromParameter": "TimeRange",
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "IncidentId",
+                  "parameterName": "IncidentId",
+                  "parameterType": 1
+                }
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "chartSettings": {
+                "xAxis": "TimeInterval",
+                "yAxis": [
+                  "IncidentCount"
+                ],
+                "group": "Classification",
+                "createOtherGroup": null,
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "<empty>",
+                    "label": "Open"
+                  }
+                ],
+                "xSettings": {
+                  "label": "Time taken to triage"
+                },
+                "ySettings": {
+                  "label": "Incidents"
+                }
+              }
+            },
+            "customWidth": "33",
+            "name": "query - 6 - Copy",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by TriageTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.TriageTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Triage distribution time - Time between assignation and set to active",
+              "timeContextFromParameter": "TimeRange",
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "IncidentId",
+                  "parameterName": "IncidentId",
+                  "parameterType": 1
+                }
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "chartSettings": {
+                "xAxis": "TimeInterval",
+                "yAxis": [
+                  "IncidentCount"
+                ],
+                "group": "Classification",
+                "createOtherGroup": null,
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "<empty>",
+                    "label": "Open"
+                  }
+                ],
+                "xSettings": {
+                  "label": "Time taken to triage"
+                },
+                "ySettings": {
+                  "label": "Incidents"
+                }
+              }
+            },
+            "customWidth": "33",
+            "name": "query - 6",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AnalysisTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AnalysisTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Analysis distribution time - time between set to active and closure",
+              "timeContextFromParameter": "TimeRange",
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "IncidentId",
+                  "parameterName": "IncidentId",
+                  "parameterType": 1
+                }
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "chartSettings": {
+                "xAxis": "TimeInterval",
+                "yAxis": [
+                  "IncidentCount"
+                ],
+                "group": "Classification",
+                "createOtherGroup": null,
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "<empty>",
+                    "label": "Open"
+                  }
+                ],
+                "xSettings": {
+                  "label": "Time taken to triage"
+                },
+                "ySettings": {
+                  "label": "Incidents"
+                }
+              }
+            },
+            "customWidth": "33",
+            "name": "query - 6 - Copy",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| summarize IncidentCount=count() by CloseTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.CloseTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Closure distribution time",
+              "timeContextFromParameter": "TimeRange",
+              "showRefreshButton": true,
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "IncidentName",
+                  "parameterName": "IncidentName",
+                  "parameterType": 1
+                }
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "tileSettings": {
+                "showBorder": false,
+                "titleContent": {
+                  "columnMatch": "TimeInterval",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "IncidentCount",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  },
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "maximumSignificantDigits": 3,
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              },
+              "graphSettings": {
+                "type": 0,
+                "topContent": {
+                  "columnMatch": "TimeInterval",
+                  "formatter": 1
+                },
+                "centerContent": {
+                  "columnMatch": "IncidentCount",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "maximumSignificantDigits": 3,
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              },
+              "chartSettings": {
+                "xAxis": "TimeInterval",
+                "yAxis": [
+                  "IncidentCount"
+                ],
+                "group": "Classification",
+                "createOtherGroup": null,
+                "showLegend": true,
+                "seriesLabelSettings": [
+                  {
+                    "seriesName": "<empty>",
+                    "label": "Open"
+                  }
+                ],
+                "xSettings": {
+                  "label": "Time taken to close incident"
+                }
+              },
+              "mapSettings": {
+                "locInfo": "LatLong",
+                "sizeSettings": "IncidentCount",
+                "sizeAggregation": "Sum",
+                "legendMetric": "IncidentCount",
+                "legendAggregation": "Sum",
+                "itemColorSettings": {
+                  "type": "heatmap",
+                  "colorAggregation": "Sum",
+                  "nodeColorField": "IncidentCount",
+                  "heatmapPalette": "greenRed"
+                }
+              }
+            },
+            "customWidth": "33",
+            "name": "query - 7",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| summarize count() by Title,Classification\r\n| project Title, IncidentCount = count_, Classification\r\n| order by IncidentCount desc\r\n| render columnchart with (kind=stacked) ",
+              "size": 0,
+              "showAnalytics": true,
+              "title": "Incident Title by Closure Classification",
+              "timeContextFromParameter": "TimeRange",
+              "showRefreshButton": true,
+              "exportMultipleValues": true,
+              "exportedParameters": [
+                {
+                  "fieldName": "IncidentName",
+                  "parameterName": "IncidentName",
+                  "parameterType": 1
+                }
+              ],
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "tileSettings": {
+                "showBorder": false,
+                "titleContent": {
+                  "columnMatch": "TimeInterval",
+                  "formatter": 1
+                },
+                "leftContent": {
+                  "columnMatch": "IncidentCount",
+                  "formatter": 12,
+                  "formatOptions": {
+                    "palette": "auto"
+                  },
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "maximumSignificantDigits": 3,
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              },
+              "graphSettings": {
+                "type": 0,
+                "topContent": {
+                  "columnMatch": "TimeInterval",
+                  "formatter": 1
+                },
+                "centerContent": {
+                  "columnMatch": "IncidentCount",
+                  "formatter": 1,
+                  "numberFormat": {
+                    "unit": 17,
+                    "options": {
+                      "maximumSignificantDigits": 3,
+                      "maximumFractionDigits": 2
+                    }
+                  }
+                }
+              },
+              "chartSettings": {
+                "xAxis": "Title",
+                "group": "Classification",
+                "createOtherGroup": null,
+                "showLegend": true,
+                "xSettings": {
+                  "label": "Incident Title"
+                },
+                "ySettings": {
+                  "label": "Number of incidents"
+                }
+              },
+              "mapSettings": {
+                "locInfo": "LatLong",
+                "sizeSettings": "IncidentCount",
+                "sizeAggregation": "Sum",
+                "legendMetric": "IncidentCount",
+                "legendAggregation": "Sum",
+                "itemColorSettings": {
+                  "type": "heatmap",
+                  "colorAggregation": "Sum",
+                  "nodeColorField": "IncidentCount",
+                  "heatmapPalette": "greenRed"
+                }
+              }
+            },
+            "customWidth": "33",
+            "name": "query - 7 - Copy",
+            "styleSettings": {
+              "showBorder": true
+            }
+          },
+          {
+            "type": 3,
+            "content": {
+              "version": "KqlItem/1.0",
+              "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nlet AutomationUsed=SecurityIncident\r\n    | summarize AllModifiedBy = make_list(ModifiedBy) by IncidentNumber\r\n    | extend AutomationUsed = iff(AllModifiedBy has_any ('playbook', 'automation rule', 'External application'), 'yes', 'no');\r\nlet AnalyticRules = (\r\n    SentinelHealth\r\n    | where SentinelResourceType == \"Analytics Rule\"\r\n    | extend SentinelResourceId = tostring(ExtendedProperties.RuleId)\r\n    | summarize arg_max(TimeGenerated, *) by SentinelResourceId\r\n    );\r\nlet AllRules=SecurityIncident\r\n    | summarize arg_max(TimeGenerated, *) by IncidentNumber\r\n    | mv-expand RelatedAnalyticRuleIds\r\n    | extend RelatedAnalyticRuleIds = tostring(RelatedAnalyticRuleIds)\r\n    | join kind=leftouter AnalyticRules on $left.RelatedAnalyticRuleIds == $right.SentinelResourceId\r\n    | summarize AllRules = make_list(SentinelResourceName) by IncidentNumber;\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| join kind=leftouter AllRules on IncidentNumber\r\n| join AutomationUsed on IncidentNumber\r\n//| join kind=leftouter ClosedBy on IncidentNumber\r\n//| project IncidentNumber,Title,CreatedTime,Status,Severity,Owner,AllModifiedBy,Product,Tactics,IncidentName,AutomationUsed\r\n//| where ClosedByXDRCorrelation == false\r\n| where \"\" == \"\" or ClosedByAutomation == \"\"\r\n| project\r\n    IncidentNumber,\r\n    CreatedTime,\r\n    FirstModifiedTime,\r\n    LastModifiedTime,\r\n    TriageTime,\r\n    AcknowledgeTime,\r\n    ClosedTime,\r\n    AnalysisTimeMinutes,\r\n    AutomationUsed,\r\n    Title,\r\n    Severity,\r\n    Status,\r\n    Classification,\r\n    Owner,\r\n    Tactics,\r\n    AllModifiedBy,\r\n    ProductName,\r\n    TriagedByAutomation,\r\n    ClosedByAutomation,\r\n    ClosedByXDRCorrelation,\r\n    IncidentUrl,\r\n    RelatedAnalyticRuleIds,\r\n    ProviderName,\r\n    AllRules\r\n| order by IncidentNumber asc\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n",
+              "size": 0,
+              "title": "Incident Details",
+              "timeContextFromParameter": "TimeRange",
+              "queryType": 0,
+              "resourceType": "microsoft.operationalinsights/workspaces",
+              "crossComponentResources": [
+                "{Workspaces}"
+              ],
+              "gridSettings": {
+                "formatters": [
+                  {
+                    "columnMatch": "CreatedTime",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "FirstModifiedTime",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "TriageTime",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "AcknowledgeTime",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "ClosedTime",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "AnalysisTimeMinutes",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "AutomationUsed",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "icons",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "no",
+                          "representation": "more",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "success",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Title",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "GenericDetails",
+                      "linkIsContextBlade": true
+                    }
+                  },
+                  {
+                    "columnMatch": "Severity",
+                    "formatter": 18,
+                    "formatOptions": {
+                      "thresholdsOptions": "colors",
+                      "thresholdsGrid": [
+                        {
+                          "operator": "==",
+                          "thresholdValue": "High",
+                          "representation": "redBright",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Medium",
+                          "representation": "yellow",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "==",
+                          "thresholdValue": "Informational",
+                          "representation": "blue",
+                          "text": "{0}{1}"
+                        },
+                        {
+                          "operator": "Default",
+                          "thresholdValue": null,
+                          "representation": "green",
+                          "text": "{0}{1}"
+                        }
+                      ]
+                    }
+                  },
+                  {
+                    "columnMatch": "Tactics",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "ModifiedBy",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "Product",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "IncidentUrl",
+                    "formatter": 7,
+                    "formatOptions": {
+                      "linkTarget": "Url"
+                    }
+                  },
+                  {
+                    "columnMatch": "RelatedAnalyticRuleIds",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "ProviderName",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "AllRules",
+                    "formatter": 5
+                  },
+                  {
+                    "columnMatch": "IncidentName",
+                    "formatter": 5
+                  }
+                ],
+                "sortBy": [
+                  {
+                    "itemKey": "Owner",
+                    "sortOrder": 2
+                  }
+                ]
+              },
+              "sortBy": [
+                {
+                  "itemKey": "Owner",
+                  "sortOrder": 2
+                }
+              ]
+            },
+            "name": "query - 8"
+          }
+        ]
       },
       "conditionalVisibility": {
         "parameterName": "SelectedTab",
@@ -1473,623 +2100,15 @@
       "name": "Rule Analysis"
     },
     {
-      "type": 9,
+      "type": 1,
       "content": {
-        "version": "KqlParameterItem/1.0",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "parameters": [
-          {
-            "id": "609e19df-e938-4ec7-aa8d-da6d293956c6",
-            "version": "KqlParameterItem/1.0",
-            "name": "IncidentTitle",
-            "label": "Incident Title",
-            "type": 2,
-            "isRequired": true,
-            "multiSelect": true,
-            "quote": "'",
-            "delimiter": ",",
-            "query": "SecurityIncident\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| where Severity in ({Severity}) or \"*\" in ({Severity})\r\n| extend Tactics = todynamic(AdditionalData.tactics)\r\n| where Tactics in ({Tactics}) or \"*\" in ({Tactics})\r\n| extend Owner = todynamic(Owner.assignedTo) \r\n| where Owner in ({Owner}) or \"*\" in ({Owner})\r\n| extend Product = todynamic((parse_json(tostring(AdditionalData.alertProductNames))[0])) \r\n| where Product in ({Product}) or \"*\" in ({Product})\r\n| summarize Count=count() by Title\r\n| order by Count\r\n| project Value=replace(@'\\\\', @'\\\\\\\\', Title), Label = strcat(Title, \": \", Count)\r\n",
-            "crossComponentResources": [
-              "{Workspaces}"
-            ],
-            "typeSettings": {
-              "additionalResourceOptions": [
-                "value::all"
-              ],
-              "selectAllValue": "*",
-              "showDefault": false
-            },
-            "timeContext": {
-              "durationMs": 0
-            },
-            "timeContextFromParameter": "TimeRange",
-            "queryType": 0,
-            "resourceType": "microsoft.operationalinsights/workspaces",
-            "value": [
-              "value::all"
-            ]
-          },
-          {
-            "id": "334e5ca8-c2f4-4587-b715-b0dfb893a574",
-            "version": "KqlParameterItem/1.0",
-            "name": "AutomatedTriage",
-            "label": "Automation in Triage?",
-            "type": 10,
-            "typeSettings": {
-              "additionalResourceOptions": []
-            },
-            "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
-            "timeContext": {
-              "durationMs": 0
-            },
-            "timeContextFromParameter": "TimeRange"
-          },
-          {
-            "id": "2fc6c56a-3db0-4fba-86d5-41d2171b3cdd",
-            "version": "KqlParameterItem/1.0",
-            "name": "AutomatedClosure",
-            "label": "Automation in Closure?",
-            "type": 10,
-            "typeSettings": {
-              "additionalResourceOptions": []
-            },
-            "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
-            "timeContext": {
-              "durationMs": 0
-            },
-            "timeContextFromParameter": "TimeRange"
-          },
-          {
-            "id": "eb8454df-71b1-4e77-a897-865e486cf917",
-            "version": "KqlParameterItem/1.0",
-            "name": "ClosedXDR",
-            "label": "Closed by XDR",
-            "type": 10,
-            "typeSettings": {
-              "additionalResourceOptions": [],
-              "showDefault": false
-            },
-            "jsonData": "[\r\n {\"value\": \"True\", \"label\": \"True\"},\r\n {\"value\": \"False\", \"label\": \"False\"}\r\n]",
-            "timeContext": {
-              "durationMs": 7776000000
-            },
-            "timeContextFromParameter": "TimeRange"
-          }
-        ],
-        "style": "pills",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces"
+        "json": ""
       },
-      "name": "parameters - 5"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AcknowledgeTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AcknowledgeTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
-        "size": 0,
-        "showAnalytics": true,
-        "title": "Acknowledge distribution time",
-        "timeContextFromParameter": "TimeRange",
-        "exportMultipleValues": true,
-        "exportedParameters": [
-          {
-            "fieldName": "IncidentId",
-            "parameterName": "IncidentId",
-            "parameterType": 1
-          }
-        ],
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "chartSettings": {
-          "xAxis": "TimeInterval",
-          "yAxis": [
-            "IncidentCount"
-          ],
-          "group": "Classification",
-          "createOtherGroup": null,
-          "showLegend": true,
-          "seriesLabelSettings": [
-            {
-              "seriesName": "<empty>",
-              "label": "Open"
-            }
-          ],
-          "xSettings": {
-            "label": "Time taken to triage"
-          },
-          "ySettings": {
-            "label": "Incidents"
-          }
-        }
-      },
-      "customWidth": "33",
-      "name": "query - 6 - Copy",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by TriageTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.TriageTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
-        "size": 0,
-        "showAnalytics": true,
-        "title": "Triage distribution time",
-        "timeContextFromParameter": "TimeRange",
-        "exportMultipleValues": true,
-        "exportedParameters": [
-          {
-            "fieldName": "IncidentId",
-            "parameterName": "IncidentId",
-            "parameterType": 1
-          }
-        ],
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "chartSettings": {
-          "xAxis": "TimeInterval",
-          "yAxis": [
-            "IncidentCount"
-          ],
-          "group": "Classification",
-          "createOtherGroup": null,
-          "showLegend": true,
-          "seriesLabelSettings": [
-            {
-              "seriesName": "<empty>",
-              "label": "Open"
-            }
-          ],
-          "xSettings": {
-            "label": "Time taken to triage"
-          },
-          "ySettings": {
-            "label": "Incidents"
-          }
-        }
-      },
-      "customWidth": "33",
-      "name": "query - 6",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| extend Classification=iff(ClosedByXDRCorrelation==true,\"XDR\",Classification)\r\n| summarize IncidentCount=count() by AnalysisTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.AnalysisTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
-        "size": 0,
-        "showAnalytics": true,
-        "title": "Analysis distribution time",
-        "timeContextFromParameter": "TimeRange",
-        "exportMultipleValues": true,
-        "exportedParameters": [
-          {
-            "fieldName": "IncidentId",
-            "parameterName": "IncidentId",
-            "parameterType": 1
-          }
-        ],
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "chartSettings": {
-          "xAxis": "TimeInterval",
-          "yAxis": [
-            "IncidentCount"
-          ],
-          "group": "Classification",
-          "createOtherGroup": null,
-          "showLegend": true,
-          "seriesLabelSettings": [
-            {
-              "seriesName": "<empty>",
-              "label": "Open"
-            }
-          ],
-          "xSettings": {
-            "label": "Time taken to triage"
-          },
-          "ySettings": {
-            "label": "Incidents"
-          }
-        }
-      },
-      "customWidth": "33",
-      "name": "query - 6 - Copy",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "//Time To triage:\r\nlet TimeIntervals = datatable(TimeInterval: string)\r\n[\r\n    \"00-05 minutes\",\r\n    \"05-10 minutes\",\r\n    \"10-15 minutes\",\r\n    \"15-20 minutes\",\r\n    \"20-25 minutes\",\r\n    \"25-30 minutes\",\r\n    \"more than 30 minutes\",\r\n    \"n.a.\"\r\n];\r\nlet Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| where \"{AutomatedTriage}\"==\"\" or TriagedByAutomation == \"{AutomatedTriage:value}\"\r\n| where \"{ClosedXDR}\"==\"\" or ClosedByXDRCorrelation == \"{ClosedXDR:value}\"\r\n| where \"{AutomatedClosure}\"==\"\" or ClosedByAutomation == \"{AutomatedClosure:value}\"\r\n| summarize IncidentCount=count() by CloseTimeInterval,Classification,ClosedByAutomation\r\n| join kind=leftouter TimeIntervals on $left.CloseTimeInterval==$right.TimeInterval\r\n// Visualize the data\r\n| project TimeInterval, IncidentCount = coalesce(IncidentCount, 0),Classification\r\n| order by TimeInterval asc\r\n| render columnchart with (kind=stacked)\r\n",
-        "size": 0,
-        "showAnalytics": true,
-        "title": "Closure distribution time",
-        "timeContextFromParameter": "TimeRange",
-        "showRefreshButton": true,
-        "exportMultipleValues": true,
-        "exportedParameters": [
-          {
-            "fieldName": "IncidentName",
-            "parameterName": "IncidentName",
-            "parameterType": 1
-          }
-        ],
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "tileSettings": {
-          "showBorder": false,
-          "titleContent": {
-            "columnMatch": "TimeInterval",
-            "formatter": 1
-          },
-          "leftContent": {
-            "columnMatch": "IncidentCount",
-            "formatter": 12,
-            "formatOptions": {
-              "palette": "auto"
-            },
-            "numberFormat": {
-              "unit": 17,
-              "options": {
-                "maximumSignificantDigits": 3,
-                "maximumFractionDigits": 2
-              }
-            }
-          }
-        },
-        "graphSettings": {
-          "type": 0,
-          "topContent": {
-            "columnMatch": "TimeInterval",
-            "formatter": 1
-          },
-          "centerContent": {
-            "columnMatch": "IncidentCount",
-            "formatter": 1,
-            "numberFormat": {
-              "unit": 17,
-              "options": {
-                "maximumSignificantDigits": 3,
-                "maximumFractionDigits": 2
-              }
-            }
-          }
-        },
-        "chartSettings": {
-          "xAxis": "TimeInterval",
-          "yAxis": [
-            "IncidentCount"
-          ],
-          "group": "Classification",
-          "createOtherGroup": null,
-          "showLegend": true,
-          "seriesLabelSettings": [
-            {
-              "seriesName": "<empty>",
-              "label": "Open"
-            }
-          ],
-          "xSettings": {
-            "label": "Time taken to close incident"
-          }
-        },
-        "mapSettings": {
-          "locInfo": "LatLong",
-          "sizeSettings": "IncidentCount",
-          "sizeAggregation": "Sum",
-          "legendMetric": "IncidentCount",
-          "legendAggregation": "Sum",
-          "itemColorSettings": {
-            "type": "heatmap",
-            "colorAggregation": "Sum",
-            "nodeColorField": "IncidentCount",
-            "heatmapPalette": "greenRed"
-          }
-        }
-      },
-      "customWidth": "33",
-      "name": "query - 7",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize count() by Title,Classification\r\n| project Title, IncidentCount = count_, Classification\r\n| order by IncidentCount desc\r\n| render columnchart with (kind=stacked) ",
-        "size": 0,
-        "showAnalytics": true,
-        "title": "Incident Title by Closure Classification",
-        "timeContextFromParameter": "TimeRange",
-        "showRefreshButton": true,
-        "exportMultipleValues": true,
-        "exportedParameters": [
-          {
-            "fieldName": "IncidentName",
-            "parameterName": "IncidentName",
-            "parameterType": 1
-          }
-        ],
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "tileSettings": {
-          "showBorder": false,
-          "titleContent": {
-            "columnMatch": "TimeInterval",
-            "formatter": 1
-          },
-          "leftContent": {
-            "columnMatch": "IncidentCount",
-            "formatter": 12,
-            "formatOptions": {
-              "palette": "auto"
-            },
-            "numberFormat": {
-              "unit": 17,
-              "options": {
-                "maximumSignificantDigits": 3,
-                "maximumFractionDigits": 2
-              }
-            }
-          }
-        },
-        "graphSettings": {
-          "type": 0,
-          "topContent": {
-            "columnMatch": "TimeInterval",
-            "formatter": 1
-          },
-          "centerContent": {
-            "columnMatch": "IncidentCount",
-            "formatter": 1,
-            "numberFormat": {
-              "unit": 17,
-              "options": {
-                "maximumSignificantDigits": 3,
-                "maximumFractionDigits": 2
-              }
-            }
-          }
-        },
-        "chartSettings": {
-          "xAxis": "Title",
-          "group": "Classification",
-          "createOtherGroup": null,
-          "showLegend": true,
-          "xSettings": {
-            "label": "Incident Title"
-          },
-          "ySettings": {
-            "label": "Number of incidents"
-          }
-        },
-        "mapSettings": {
-          "locInfo": "LatLong",
-          "sizeSettings": "IncidentCount",
-          "sizeAggregation": "Sum",
-          "legendMetric": "IncidentCount",
-          "legendAggregation": "Sum",
-          "itemColorSettings": {
-            "type": "heatmap",
-            "colorAggregation": "Sum",
-            "nodeColorField": "IncidentCount",
-            "heatmapPalette": "greenRed"
-          }
-        }
-      },
-      "customWidth": "33",
-      "name": "query - 7 - Copy",
-      "styleSettings": {
-        "showBorder": true
-      }
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nlet AutomationUsed=SecurityIncident\r\n    | summarize AllModifiedBy = make_list(ModifiedBy) by IncidentNumber\r\n    | extend AutomationUsed = iff(AllModifiedBy has_any ('playbook', 'automation rule', 'External application'), 'yes', 'no');\r\nlet AnalyticRules = (\r\n    SentinelHealth\r\n    | where SentinelResourceType == \"Analytics Rule\"\r\n    | extend SentinelResourceId = tostring(ExtendedProperties.RuleId)\r\n    | summarize arg_max(TimeGenerated, *) by SentinelResourceId\r\n    );\r\nlet AllRules=SecurityIncident\r\n    | summarize arg_max(TimeGenerated, *) by IncidentNumber\r\n    | mv-expand RelatedAnalyticRuleIds\r\n    | extend RelatedAnalyticRuleIds = tostring(RelatedAnalyticRuleIds)\r\n    | join kind=leftouter AnalyticRules on $left.RelatedAnalyticRuleIds == $right.SentinelResourceId\r\n    | summarize AllRules = make_list(SentinelResourceName) by IncidentNumber;\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n| summarize arg_max(TimeGenerated,*) by IncidentNumber\r\n| join kind=leftouter AllRules on IncidentNumber\r\n| join AutomationUsed on IncidentNumber\r\n//| join kind=leftouter ClosedBy on IncidentNumber\r\n//| project IncidentNumber,Title,CreatedTime,Status,Severity,Owner,AllModifiedBy,Product,Tactics,IncidentName,AutomationUsed\r\n//| where ClosedByXDRCorrelation == false\r\n| where \"\" == \"\" or ClosedByAutomation == \"\"\r\n| project\r\n    IncidentNumber,\r\n    CreatedTime,\r\n    FirstModifiedTime,\r\n    LastModifiedTime,\r\n    TriageTime,\r\n    AcknowledgeTime,\r\n    ClosedTime,\r\n    AnalysisTimeMinutes,\r\n    AutomationUsed,\r\n    Title,\r\n    Severity,\r\n    Status,\r\n    Classification,\r\n    Owner,\r\n    Tactics,\r\n    AllModifiedBy,\r\n    ProductName,\r\n    ClosedByAutomation,\r\n    ClosedByXDRCorrelation,\r\n    IncidentUrl,\r\n    RelatedAnalyticRuleIds,\r\n    ProviderName,\r\n    AllRules\r\n| order by IncidentNumber asc\r\n",
-        "size": 0,
-        "title": "Incident Details",
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "gridSettings": {
-          "formatters": [
-            {
-              "columnMatch": "CreatedTime",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "FirstModifiedTime",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "TriageTime",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "AcknowledgeTime",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "ClosedTime",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "AnalysisTimeMinutes",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "AutomationUsed",
-              "formatter": 18,
-              "formatOptions": {
-                "thresholdsOptions": "icons",
-                "thresholdsGrid": [
-                  {
-                    "operator": "==",
-                    "thresholdValue": "no",
-                    "representation": "more",
-                    "text": "{0}{1}"
-                  },
-                  {
-                    "operator": "Default",
-                    "thresholdValue": null,
-                    "representation": "success",
-                    "text": "{0}{1}"
-                  }
-                ]
-              }
-            },
-            {
-              "columnMatch": "Title",
-              "formatter": 7,
-              "formatOptions": {
-                "linkTarget": "GenericDetails",
-                "linkIsContextBlade": true
-              }
-            },
-            {
-              "columnMatch": "Severity",
-              "formatter": 18,
-              "formatOptions": {
-                "thresholdsOptions": "colors",
-                "thresholdsGrid": [
-                  {
-                    "operator": "==",
-                    "thresholdValue": "High",
-                    "representation": "redBright",
-                    "text": "{0}{1}"
-                  },
-                  {
-                    "operator": "==",
-                    "thresholdValue": "Medium",
-                    "representation": "yellow",
-                    "text": "{0}{1}"
-                  },
-                  {
-                    "operator": "==",
-                    "thresholdValue": "Informational",
-                    "representation": "blue",
-                    "text": "{0}{1}"
-                  },
-                  {
-                    "operator": "Default",
-                    "thresholdValue": null,
-                    "representation": "green",
-                    "text": "{0}{1}"
-                  }
-                ]
-              }
-            },
-            {
-              "columnMatch": "Tactics",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "ModifiedBy",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "Product",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "IncidentUrl",
-              "formatter": 7,
-              "formatOptions": {
-                "linkTarget": "Url"
-              }
-            },
-            {
-              "columnMatch": "RelatedAnalyticRuleIds",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "ProviderName",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "AllRules",
-              "formatter": 5
-            },
-            {
-              "columnMatch": "IncidentName",
-              "formatter": 5
-            }
-          ],
-          "sortBy": [
-            {
-              "itemKey": "ClosedByXDRCorrelation",
-              "sortOrder": 2
-            }
-          ]
-        },
-        "sortBy": [
-          {
-            "itemKey": "ClosedByXDRCorrelation",
-            "sortOrder": 2
-          }
-        ]
-      },
-      "name": "query - 8"
-    },
-    {
-      "type": 3,
-      "content": {
-        "version": "KqlItem/1.0",
-        "query": "let Incidents=dynamic([{IncidentTitle}]);\r\nlet Severity=dynamic([{Severity}]);\r\nlet StartTime=todatetime({TimeRange:start});\r\nlet EndTime=todatetime({TimeRange:end});\r\nlet Products=dynamic([{Product}]);\r\nlet Owner=dynamic([{Owner}]);\r\nlet Tactics=dynamic([{Tactics}]);\r\nIncidentData(startTime=StartTime,endTime=EndTime,IncidentTitle=Incidents,SeverityLevel=Severity,Product=Products,CurrentOwner=Owner,Tactics=Tactics)\r\n",
-        "size": 0,
-        "timeContextFromParameter": "TimeRange",
-        "queryType": 0,
-        "resourceType": "microsoft.operationalinsights/workspaces",
-        "crossComponentResources": [
-          "{Workspaces}"
-        ],
-        "gridSettings": {
-          "sortBy": [
-            {
-              "itemKey": "Owner",
-              "sortOrder": 2
-            }
-          ]
-        },
-        "sortBy": [
-          {
-            "itemKey": "Owner",
-            "sortOrder": 2
-          }
-        ]
-      },
-      "name": "query - 10"
+      "name": "text - 9"
     }
+  ],
+  "fallbackResourceIds": [
+    "/subscriptions/df73fe16-2740-447b-920a-1138d6c764b2/resourcegroups/centralresources/providers/microsoft.operationalinsights/workspaces/sentinel"
   ],
   "fromTemplateId": "sentinel-UserWorkbook",
   "$schema": "https://github.com/Microsoft/Application-Insights-Workbooks/blob/master/schema/workbook.json"
