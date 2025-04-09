@@ -1,0 +1,21 @@
+let AnomalyThreshold=1.2;
+let baselineTimeRange=30d;
+let requestThreshold=1;
+let baselineSample=5m;
+let avgRequestsPerMinute = 
+    AzureDiagnostics
+    | where Category contains "FrontDoorAccessLog"
+    | where TimeGenerated > ago(baselineTimeRange)
+    | summarize requests_per_minute = count() by requestUri_s, bin(TimeGenerated, baselineSample)
+    | where requests_per_minute >= requestThreshold
+    | summarize avgRequests = avg(requests_per_minute) by requestUri_s
+  ;
+AzureDiagnostics
+| where Category contains "FrontDoorAccessLog"
+| where TimeGenerated > ago(baselineSample)
+| summarize requests_per_minute = count() by requestUri_s,bin(TimeGenerated, baselineSample)
+| join kind=inner (
+    avgRequestsPerMinute
+) on requestUri_s
+| where requests_per_minute > avgRequests * AnomalyThreshold
+| project-away requestUri_s1

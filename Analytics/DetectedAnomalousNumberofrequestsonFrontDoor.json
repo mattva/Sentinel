@@ -1,0 +1,72 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c9ebb7dc-7471-45b7-ac0f-22cec8be7914')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c9ebb7dc-7471-45b7-ac0f-22cec8be7914')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "[MATTUCLAB] Detected Anomalous Number of requests on FrontDoor",
+                "description": "",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "let AnomalyThreshold=1.2;\r\nlet baselineTimeRange=30d;\r\nlet requestThreshold=1;\r\nlet baselineSample=5m;\r\nlet avgRequestsPerMinute = \r\n    AzureDiagnostics\r\n    | where Category contains \"FrontDoorAccessLog\"\r\n    | where TimeGenerated > ago(baselineTimeRange)\r\n    | summarize requests_per_minute = count() by requestUri_s, bin(TimeGenerated, baselineSample)\r\n    | where requests_per_minute >= requestThreshold\r\n    | summarize avgRequests = avg(requests_per_minute) by requestUri_s\r\n  ;\r\nAzureDiagnostics\r\n| where Category contains \"FrontDoorAccessLog\"\r\n| where TimeGenerated > ago(baselineSample)\r\n| summarize requests_per_minute = count() by requestUri_s,bin(TimeGenerated, baselineSample)\r\n| join kind=inner (\r\n    avgRequestsPerMinute\r\n) on requestUri_s\r\n| where requests_per_minute > avgRequests * AnomalyThreshold\r\n| project-away requestUri_s1",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "P1D",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [
+                    "InhibitResponseFunction",
+                    "Impact"
+                ],
+                "techniques": [
+                    "T0814",
+                    "T1464"
+                ],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": null,
+                "customDetails": null,
+                "entityMappings": [
+                    {
+                        "entityType": "URL",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Url",
+                                "columnName": "requestUri_s"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        }
+    ]
+}
