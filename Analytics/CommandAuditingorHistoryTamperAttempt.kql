@@ -1,0 +1,13 @@
+Syslog
+| where Facility == "local1"
+| where SyslogMessage contains "history -d"
+    or SyslogMessage contains "history -c"
+    or SyslogMessage matches regex ".*alias.*history"
+    or SyslogMessage matches regex ".*PROMPT_COMMAND="
+    or SyslogMessage matches regex ".*trap.*DEBUG"
+| extend syslogmsg=split(SyslogMessage, ":")
+| extend username = extract("^\\[(.*?)\\] (.*)$", 1, SyslogMessage)
+| extend source = strcat(extract("^\\[(.*?)\\] (.*) (.*) (.*) (.*): (.*)$", 2, SyslogMessage), ":", extract("^\\[(.*)\\] (.*) (.*) (.*) (.*): (.*)$", 3, SyslogMessage))
+| extend destination = strcat(extract("^\\[(.*?)\\] (.*) (.*) (.*) (.*): (.*)$", 4, SyslogMessage), ":", extract("^\\[(.*?)\\] (.*) (.*) (.*) (.*): (.*)$", 5, SyslogMessage))
+| extend command = syslogmsg[1]
+| project-away syslogmsg
