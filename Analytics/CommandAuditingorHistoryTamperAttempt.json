@@ -1,0 +1,81 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/c776995f-933f-4531-8ba8-89ee611a46b4')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/c776995f-933f-4531-8ba8-89ee611a46b4')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2023-12-01-preview",
+            "properties": {
+                "displayName": "[MATTUCLAB] command auditing or history tamper attempt",
+                "description": "",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "Syslog\n| where Facility == \"local1\"\n| where SyslogMessage contains \"history -d\"\n    or SyslogMessage contains \"history -c\"\n    or SyslogMessage matches regex \".*alias.*history\"\n    or SyslogMessage matches regex \".*PROMPT_COMMAND=\"\n    or SyslogMessage matches regex \".*trap.*DEBUG\"\n| extend syslogmsg=split(SyslogMessage, \":\")\n| extend username = extract(\"^\\\\[(.*?)\\\\] (.*)$\", 1, SyslogMessage)\n| extend source = strcat(extract(\"^\\\\[(.*?)\\\\] (.*) (.*) (.*) (.*): (.*)$\", 2, SyslogMessage), \":\", extract(\"^\\\\[(.*)\\\\] (.*) (.*) (.*) (.*): (.*)$\", 3, SyslogMessage))\n| extend destination = strcat(extract(\"^\\\\[(.*?)\\\\] (.*) (.*) (.*) (.*): (.*)$\", 4, SyslogMessage), \":\", extract(\"^\\\\[(.*?)\\\\] (.*) (.*) (.*) (.*): (.*)$\", 5, SyslogMessage))\n| extend command = syslogmsg[1]\n| project-away syslogmsg\n\n",
+                "queryFrequency": "PT5M",
+                "queryPeriod": "PT7M",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "subTechniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": true,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "PT5H",
+                        "matchingMethod": "Selected",
+                        "groupByEntities": [
+                            "Account"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": []
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "SingleAlert"
+                },
+                "alertDetailsOverride": {
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "command": "command"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "Account",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Name",
+                                "columnName": "username"
+                            }
+                        ]
+                    },
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "source"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        }
+    ]
+}
