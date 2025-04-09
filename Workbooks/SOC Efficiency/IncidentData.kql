@@ -11,6 +11,7 @@
 //      $functionParameters = "startTime:datetime, endTime:datetime, IncidentTitle:dynamic = dynamic(['']), SeverityLevel:dynamic = dynamic(['']), Tactics:dynamic = dynamic(['']), CurrentOwner:dynamic = dynamic(['']), Product:dynamic = dynamic([''])"
 //      az monitor log-analytics workspace saved-search create --resource-group $resourceGroup --workspace-name $workspaceName --category $category --display-name $displayName --name $name --fp "$functionParameters" --fa $functionAlias -q "//placeholder"
 //
+//
 //acknowledge time is the first time an owner is assigned
 let AcknowledgeTime=SecurityIncident
 | where TimeGenerated >= startTime and TimeGenerated <= endTime
