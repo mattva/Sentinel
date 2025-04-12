@@ -1,21 +1,26 @@
 let AnomalyThreshold=1.2;
 let baselineTimeRange=30d;
-let requestThreshold=1;
+let requestThreshold=10;
 let baselineSample=5m;
 let avgRequestsPerMinute = 
     AzureDiagnostics
     | where Category contains "FrontDoorAccessLog"
     | where TimeGenerated > ago(baselineTimeRange)
-    | summarize requests_per_minute = count() by requestUri_s, bin(TimeGenerated, baselineSample)
+    | extend requestUri_s = iff(indexof(requestUri_s,"?") == -1,requestUri_s,substring(requestUri_s,0,indexof(requestUri_s,"?")))
+    | summarize requests_per_minute = count() by clientIp_s,requestUri_s, bin(TimeGenerated, baselineSample)
     | where requests_per_minute >= requestThreshold
-    | summarize avgRequests = avg(requests_per_minute) by requestUri_s
-  ;
+    | summarize avgRequests = avg(requests_per_minute) by clientIp_s,requestUri_s
+    | extend GeoInfo=geo_info_from_ip_address(clientIp_s)
+;
 AzureDiagnostics
 | where Category contains "FrontDoorAccessLog"
 | where TimeGenerated > ago(baselineSample)
-| summarize requests_per_minute = count() by requestUri_s,bin(TimeGenerated, baselineSample)
-| join kind=inner (
+| extend requestUri_s = iff(indexof(requestUri_s,"?") == -1,requestUri_s,substring(requestUri_s,0,indexof(requestUri_s,"?")))
+| summarize requests_per_minute = count() by clientIp_s,requestUri_s, bin(TimeGenerated, baselineSample)
+| join kind=inner   (
     avgRequestsPerMinute
-) on requestUri_s
+    )
+    on clientIp_s,requestUri_s
 | where requests_per_minute > avgRequests * AnomalyThreshold
-| project-away requestUri_s1
+//| where isnotempty(requestUri_s1)
+| project-away *1
