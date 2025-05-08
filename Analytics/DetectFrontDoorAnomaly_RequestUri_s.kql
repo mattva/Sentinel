@@ -1,26 +1,33 @@
-let AnomalyThreshold=1.2;
-let baselineTimeRange=30d;
-let requestThreshold=10;
-let baselineSample=5m;
+let AnomalyThreshold=1.2; //sensitivity to a drift in requests per minute
+let baselineTimeRange=30d;  //lookback timerange to build baseline
+let requestThreshold=2;  //minimum number of request per minute to consider the sample in the baseline
+let baselineSample=7m; //sampling used to build the baseline and lookup timerange for the detection. It should be higher than analytic rule frequency
 let avgRequestsPerMinute = 
+    //take the average number of requests per uri in the last 30 days
     AzureDiagnostics
     | where Category contains "FrontDoorAccessLog"
     | where TimeGenerated > ago(baselineTimeRange)
-    | extend requestUri_s = iff(indexof(requestUri_s,"?") == -1,requestUri_s,substring(requestUri_s,0,indexof(requestUri_s,"?")))
-    | summarize requests_per_minute = count() by clientIp_s,requestUri_s, bin(TimeGenerated, baselineSample)
+    //keep only base url, remove query strings
+    | extend requestUri_s = iff(indexof(requestUri_s, "?") == -1, requestUri_s, substring(requestUri_s, 0, indexof(requestUri_s, "?")))
+    | summarize requests_per_minute = count() by requestUri_s, bin(TimeGenerated, baselineSample)
     | where requests_per_minute >= requestThreshold
-    | summarize avgRequests = avg(requests_per_minute) by clientIp_s,requestUri_s
-    | extend GeoInfo=geo_info_from_ip_address(clientIp_s)
+    | summarize avgRequests = avg(requests_per_minute) by requestUri_s
 ;
+//detection logic: if an IP is sending more requestUri requests than the average*AnomalyThreshold, in the last baselineSample minutes, then raise an alert
 AzureDiagnostics
 | where Category contains "FrontDoorAccessLog"
 | where TimeGenerated > ago(baselineSample)
-| extend requestUri_s = iff(indexof(requestUri_s,"?") == -1,requestUri_s,substring(requestUri_s,0,indexof(requestUri_s,"?")))
-| summarize requests_per_minute = count() by clientIp_s,requestUri_s, bin(TimeGenerated, baselineSample)
-| join kind=inner   (
+//remove query strings
+| extend requestUri_s = iff(indexof(requestUri_s, "?") == -1, requestUri_s, substring(requestUri_s, 0, indexof(requestUri_s, "?")))
+//build the trend of requests per uri and per client ip
+| summarize requests_per_minute = count() by clientIp_s, requestUri_s, bin(TimeGenerated, baselineSample)
+| summarize avgRequests_per_minute = avg(requests_per_minute) by clientIp_s, requestUri_s
+| join kind=inner  (
     avgRequestsPerMinute
     )
-    on clientIp_s,requestUri_s
-| where requests_per_minute > avgRequests * AnomalyThreshold
+    on requestUri_s
+| where avgRequests_per_minute > avgRequests * AnomalyThreshold
+| extend GeoInfo=geo_info_from_ip_address(clientIp_s)
 //| where isnotempty(requestUri_s1)
 | project-away *1
+
