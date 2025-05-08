@@ -32,13 +32,13 @@
                     ]
                 },
                 "actions": {
-                    "For_each_WAF_Rule": {
+                    "For_each_WAF_Policy": {
                         "type": "Foreach",
                         "foreach": "@body('Parse_Front_Door')?['value']",
                         "actions": {
-                            "Add_Custom_Rules_to_Variable": {
+                            "For_each_Rule_in_policy": {
                                 "type": "Foreach",
-                                "foreach": "@body('Parse_WAF_Policy_Rules1')?['properties']?['customRules']?['rules']",
+                                "foreach": "@body('Parse_WAF_Policy_Rules')?['properties']?['customRules']?['rules']",
                                 "actions": {
                                     "Check_if_it_is_JSChallenge_Rule": {
                                         "type": "If",
@@ -46,7 +46,7 @@
                                             "and": [
                                                 {
                                                     "equals": [
-                                                        "@items('Add_Custom_Rules_to_Variable')?['name']",
+                                                        "@items('For_each_Rule_in_policy')?['name']",
                                                         "JSChallenge"
                                                     ]
                                                 }
@@ -55,7 +55,7 @@
                                         "actions": {
                                             "JSChallenge_Rule._Parse_conditions": {
                                                 "type": "Foreach",
-                                                "foreach": "@items('Add_Custom_Rules_to_Variable')['matchConditions']",
+                                                "foreach": "@items('For_each_Rule_in_policy')['matchConditions']",
                                                 "actions": {
                                                     "Get_Array_of_MatchValues": {
                                                         "type": "SetVariable",
@@ -89,6 +89,18 @@
                                                                                 "name": "MatchValue",
                                                                                 "value": "@items('For_each_AnomalousRequestUri_to_add')"
                                                                             }
+                                                                        },
+                                                                        "Add_AnomalousRequestUri_to_AddedUris": {
+                                                                            "type": "AppendToArrayVariable",
+                                                                            "inputs": {
+                                                                                "name": "AddedUris",
+                                                                                "value": "@items('For_each_AnomalousRequestUri_to_add')"
+                                                                            },
+                                                                            "runAfter": {
+                                                                                "Add_AnomalousRequestUri_to_MatchValue": [
+                                                                                    "Succeeded"
+                                                                                ]
+                                                                            }
                                                                         }
                                                                     }
                                                                 }
@@ -105,8 +117,8 @@
                                                         "inputs": {
                                                             "name": "Rules",
                                                             "value": {
-                                                                "action": "@{items('Add_Custom_Rules_to_Variable')?['action']}",
-                                                                "enabledState": "@{items('Add_Custom_Rules_to_Variable')?['enabledState']}",
+                                                                "action": "@{items('For_each_Rule_in_policy')?['action']}",
+                                                                "enabledState": "@{items('For_each_Rule_in_policy')?['enabledState']}",
                                                                 "matchConditions": [
                                                                     {
                                                                         "matchValue": "@variables('MatchValue')",
@@ -116,16 +128,16 @@
                                                                         "transforms": "@items('JSChallenge_Rule._Parse_conditions')?['transforms']"
                                                                     }
                                                                 ],
-                                                                "name": "@{items('Add_Custom_Rules_to_Variable')?['name']}",
-                                                                "priority": "@items('Add_Custom_Rules_to_Variable')?['priority']",
-                                                                "rateLimitDurationInMinutes": "@items('Add_Custom_Rules_to_Variable')?['rateLimitDurationInMinutes']",
-                                                                "rateLimitThreshold": "@items('Add_Custom_Rules_to_Variable')?['rateLimitThreshold']",
-                                                                "ruleType": "@{items('Add_Custom_Rules_to_Variable')?['ruleType']}"
+                                                                "name": "@{items('For_each_Rule_in_policy')?['name']}",
+                                                                "priority": "@items('For_each_Rule_in_policy')?['priority']",
+                                                                "rateLimitDurationInMinutes": "@items('For_each_Rule_in_policy')?['rateLimitDurationInMinutes']",
+                                                                "rateLimitThreshold": "@items('For_each_Rule_in_policy')?['rateLimitThreshold']",
+                                                                "ruleType": "@{items('For_each_Rule_in_policy')?['ruleType']}"
                                                             }
                                                         },
                                                         "runAfter": {
                                                             "For_each_AnomalousRequestUri_to_add": [
-                                                                "SUCCEEDED"
+                                                                "Succeeded"
                                                             ]
                                                         }
                                                     }
@@ -139,14 +151,14 @@
                                                     "inputs": {
                                                         "name": "Rules",
                                                         "value": {
-                                                            "action": "@{items('Add_Custom_Rules_to_Variable')?['action']}",
-                                                            "enabledState": "@{items('Add_Custom_Rules_to_Variable')?['enabledState']}",
-                                                            "matchConditions": "@items('Add_Custom_Rules_to_Variable')?['matchConditions']",
-                                                            "name": "@{items('Add_Custom_Rules_to_Variable')?['name']}",
-                                                            "priority": "@items('Add_Custom_Rules_to_Variable')?['priority']",
-                                                            "rateLimitDurationInMinutes": "@items('Add_Custom_Rules_to_Variable')?['rateLimitDurationInMinutes']",
-                                                            "rateLimitThreshold": "@items('Add_Custom_Rules_to_Variable')?['rateLimitThreshold']",
-                                                            "ruleType": "@{items('Add_Custom_Rules_to_Variable')?['ruleType']}"
+                                                            "action": "@{items('For_each_Rule_in_policy')?['action']}",
+                                                            "enabledState": "@{items('For_each_Rule_in_policy')?['enabledState']}",
+                                                            "matchConditions": "@items('For_each_Rule_in_policy')?['matchConditions']",
+                                                            "name": "@{items('For_each_Rule_in_policy')?['name']}",
+                                                            "priority": "@items('For_each_Rule_in_policy')?['priority']",
+                                                            "rateLimitDurationInMinutes": "@items('For_each_Rule_in_policy')?['rateLimitDurationInMinutes']",
+                                                            "rateLimitThreshold": "@items('For_each_Rule_in_policy')?['rateLimitThreshold']",
+                                                            "ruleType": "@{items('For_each_Rule_in_policy')?['ruleType']}"
                                                         }
                                                     }
                                                 }
@@ -155,7 +167,7 @@
                                     }
                                 },
                                 "runAfter": {
-                                    "Parse_WAF_Policy_Rules1": [
+                                    "Parse_WAF_Policy_Rules": [
                                         "Succeeded"
                                     ]
                                 }
@@ -185,9 +197,7 @@
                                                     "enabledState": "Enabled",
                                                     "matchConditions": [
                                                         {
-                                                            "matchValue": [
-                                                                "@{variables('AnomalousRequestUri')}"
-                                                            ],
+                                                            "matchValue": "@variables('MatchValue')",
                                                             "matchVariable": "RequestUri",
                                                             "negateCondition": false,
                                                             "operator": "Contains",
@@ -204,7 +214,7 @@
                                                 }
                                             },
                                             "runAfter": {
-                                                "Create_Unique_Priority": [
+                                                "For_each_AnomalousRequestUri_to_add-copy": [
                                                     "Succeeded"
                                                 ]
                                             }
@@ -225,11 +235,59 @@
                                                     }
                                                 }
                                             }
+                                        },
+                                        "For_each_AnomalousRequestUri_to_add-copy": {
+                                            "type": "Foreach",
+                                            "foreach": "@variables('AnomalousRequestUri')",
+                                            "actions": {
+                                                "Check_if_AnomalousRequestUri_in_MatchValue_Array_1": {
+                                                    "type": "If",
+                                                    "expression": {
+                                                        "and": [
+                                                            {
+                                                                "contains": [
+                                                                    "@variables('MatchValue')",
+                                                                    "@items('For_each_AnomalousRequestUri_to_add-copy')"
+                                                                ]
+                                                            }
+                                                        ]
+                                                    },
+                                                    "actions": {},
+                                                    "else": {
+                                                        "actions": {
+                                                            "Add_AnomalousRequestUri_to_MatchValue_1": {
+                                                                "type": "AppendToArrayVariable",
+                                                                "inputs": {
+                                                                    "name": "MatchValue",
+                                                                    "value": "@items('For_each_AnomalousRequestUri_to_add-copy')"
+                                                                }
+                                                            },
+                                                            "Add_AnomalousRequestUri_to_AddedUris_1": {
+                                                                "type": "AppendToArrayVariable",
+                                                                "inputs": {
+                                                                    "name": "AddedUris",
+                                                                    "value": "@items('For_each_AnomalousRequestUri_to_add-copy')"
+                                                                },
+                                                                "runAfter": {
+                                                                    "Add_AnomalousRequestUri_to_MatchValue_1": [
+                                                                        "Succeeded"
+                                                                    ]
+                                                                }
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            },
+                                            "runAfter": {
+                                                "Create_Unique_Priority": [
+                                                    "Succeeded"
+                                                ]
+                                            }
                                         }
                                     }
                                 },
                                 "runAfter": {
-                                    "Add_Custom_Rules_to_Variable": [
+                                    "For_each_Rule_in_policy": [
                                         "Succeeded"
                                     ]
                                 }
@@ -243,10 +301,10 @@
                                     ]
                                 }
                             },
-                            "Get_WAF_Policy_Rules1": {
+                            "Get_WAF_Policy_Rules": {
                                 "type": "Http",
                                 "inputs": {
-                                    "uri": "https://management.azure.com@{items('For_each_WAF_Rule')?['properties']?['parameters']?['wafPolicy']?['id']}?api-version=2020-11-01",
+                                    "uri": "https://management.azure.com@{items('For_each_WAF_Policy')?['properties']?['parameters']?['wafPolicy']?['id']}?api-version=2020-11-01",
                                     "method": "GET",
                                     "authentication": {
                                         "type": "ManagedServiceIdentity",
@@ -255,10 +313,10 @@
                                     }
                                 }
                             },
-                            "Parse_WAF_Policy_Rules1": {
+                            "Parse_WAF_Policy_Rules": {
                                 "type": "ParseJson",
                                 "inputs": {
-                                    "content": "@body('Get_WAF_Policy_Rules1')",
+                                    "content": "@body('Get_WAF_Policy_Rules')",
                                     "schema": {
                                         "properties": {
                                             "id": {
@@ -468,7 +526,7 @@
                                     }
                                 },
                                 "runAfter": {
-                                    "Get_WAF_Policy_Rules1": [
+                                    "Get_WAF_Policy_Rules": [
                                         "Succeeded"
                                     ]
                                 }
@@ -476,23 +534,23 @@
                             "Update_WAF_Policy": {
                                 "type": "Http",
                                 "inputs": {
-                                    "uri": "https://management.azure.com@{items('For_each_WAF_Rule')?['properties']?['parameters']?['wafPolicy']?['id']}?api-version=2020-11-01",
+                                    "uri": "https://management.azure.com@{items('For_each_WAF_Policy')?['properties']?['parameters']?['wafPolicy']?['id']}?api-version=2020-11-01",
                                     "method": "PUT",
                                     "body": {
-                                        "id": "@{items('For_each_WAF_Rule')?['properties']?['parameters']?['wafPolicy']?['id']}",
-                                        "location": "@{body('Parse_WAF_Policy_Rules1')?['location']}",
-                                        "name": "@{body('Parse_WAF_Policy_Rules1')?['name']}",
+                                        "id": "@{items('For_each_WAF_Policy')?['properties']?['parameters']?['wafPolicy']?['id']}",
+                                        "location": "@{body('Parse_WAF_Policy_Rules')?['location']}",
+                                        "name": "@{body('Parse_WAF_Policy_Rules')?['name']}",
                                         "properties": {
                                             "customRules": {
                                                 "rules": "@outputs('Create_JSON_Rules_Object_from_Array')"
                                             },
-                                            "managedRules": "@body('Parse_WAF_Policy_Rules1')?['properties']?['managedRules']",
-                                            "policySettings": "@body('Parse_WAF_Policy_Rules1')?['properties']?['policySettings']"
+                                            "managedRules": "@body('Parse_WAF_Policy_Rules')?['properties']?['managedRules']",
+                                            "policySettings": "@body('Parse_WAF_Policy_Rules')?['properties']?['policySettings']"
                                         },
                                         "sku": {
-                                            "name": "@{body('Parse_WAF_Policy_Rules1')?['sku']?['name']}"
+                                            "name": "@{body('Parse_WAF_Policy_Rules')?['sku']?['name']}"
                                         },
-                                        "type": "@{body('Parse_WAF_Policy_Rules1')?['type']}"
+                                        "type": "@{body('Parse_WAF_Policy_Rules')?['type']}"
                                     },
                                     "authentication": {
                                         "type": "ManagedServiceIdentity",
@@ -502,6 +560,18 @@
                                 },
                                 "runAfter": {
                                     "Create_JSON_Rules_Object_from_Array": [
+                                        "Succeeded"
+                                    ]
+                                }
+                            },
+                            "Append_to_array_variable_5": {
+                                "type": "AppendToArrayVariable",
+                                "inputs": {
+                                    "name": "ModifiedPolicies",
+                                    "value": "@items('For_each_WAF_Policy')?['properties']?['parameters']?['wafPolicy']?['id']"
+                                },
+                                "runAfter": {
+                                    "Update_WAF_Policy": [
                                         "Succeeded"
                                     ]
                                 }
@@ -1960,7 +2030,7 @@
                     ]
                 },
                 "runAfter": {
-                    "Initialize_MatchValue_variable": [
+                    "Initialize_AddedUris_variables": [
                         "Succeeded"
                     ]
                 }
@@ -2001,7 +2071,7 @@
                     }
                 },
                 "runAfter": {
-                    "Initialize_variable": [
+                    "Initialize_ModifiedPolicy_variable": [
                         "Succeeded"
                     ]
                 }
@@ -2010,7 +2080,7 @@
                 "type": "Foreach",
                 "foreach": "@body('Parse_Entities')",
                 "actions": {
-                    "Condition": {
+                    "Check_if_entity_is_host": {
                         "type": "If",
                         "expression": {
                             "and": [
@@ -2045,7 +2115,7 @@
                         },
                         "else": {
                             "actions": {
-                                "Condition_2": {
+                                "Check_if_entity_is_url": {
                                     "type": "If",
                                     "expression": {
                                         "and": [
@@ -2058,7 +2128,7 @@
                                         ]
                                     },
                                     "actions": {
-                                        "Append_to_AnomalousRequestUri_array": {
+                                        "Append_to_AnomalousRequestUri_array_without_query_string": {
                                             "type": "AppendToArrayVariable",
                                             "inputs": {
                                                 "name": "AnomalousRequestUri",
@@ -2076,6 +2146,94 @@
                 },
                 "runAfter": {
                     "Parse_Entities": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Alert_-_Get_incident": {
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel-1']['connectionId']"
+                        }
+                    },
+                    "method": "get",
+                    "path": "/Incidents/subscriptions/@{encodeURIComponent(triggerBody()?['WorkspaceSubscriptionId'])}/resourceGroups/@{encodeURIComponent(triggerBody()?['WorkspaceResourceGroup'])}/workspaces/@{encodeURIComponent(triggerBody()?['WorkspaceId'])}/alerts/@{encodeURIComponent(triggerBody()?['SystemAlertId'])}"
+                },
+                "runAfter": {
+                    "Check_if_AFD_WAF": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Add_comment_to_incident_(V3)": {
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "name": "@parameters('$connections')['azuresentinel-1']['connectionId']"
+                        }
+                    },
+                    "method": "post",
+                    "body": {
+                        "incidentArmId": "@body('Alert_-_Get_incident')?['id']",
+                        "message": "<p class=\"editor-paragraph\">Added @{outputs('Convert_AddedUris_Array_to_string')} to @{outputs('Convert_policy_array_to_string')} WAF policy</p>"
+                    },
+                    "path": "/Incidents/Comment"
+                },
+                "runAfter": {
+                    "Convert_policy_array_to_string": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Initialize_AddedUris_variables": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "AddedUris",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_MatchValue_variable": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Convert_AddedUris_Array_to_string": {
+                "type": "Compose",
+                "inputs": "@variables('AddedUris')",
+                "runAfter": {
+                    "Alert_-_Get_incident": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Initialize_ModifiedPolicy_variable": {
+                "type": "InitializeVariable",
+                "inputs": {
+                    "variables": [
+                        {
+                            "name": "ModifiedPolicies",
+                            "type": "array"
+                        }
+                    ]
+                },
+                "runAfter": {
+                    "Initialize_variable": [
+                        "Succeeded"
+                    ]
+                }
+            },
+            "Convert_policy_array_to_string": {
+                "type": "Compose",
+                "inputs": "@variables('ModifiedPolicies')",
+                "runAfter": {
+                    "Convert_AddedUris_Array_to_string": [
                         "Succeeded"
                     ]
                 }
@@ -2097,6 +2255,16 @@
                     "id": "/subscriptions/df73fe16-2740-447b-920a-1138d6c764b2/providers/Microsoft.Web/locations/northeurope/managedApis/azuresentinel",
                     "connectionId": "/subscriptions/df73fe16-2740-447b-920a-1138d6c764b2/resourceGroups/CentralResources/providers/Microsoft.Web/connections/azuresentinel-Block-IPAzureWAF-Orig",
                     "connectionName": "azuresentinel-Block-IPAzureWAF-Orig"
+                },
+                "azuresentinel-1": {
+                    "id": "/subscriptions/df73fe16-2740-447b-920a-1138d6c764b2/providers/Microsoft.Web/locations/northeurope/managedApis/azuresentinel",
+                    "connectionId": "/subscriptions/df73fe16-2740-447b-920a-1138d6c764b2/resourceGroups/CentralResources/providers/Microsoft.Web/connections/azuresentinel-Prompt-User-Incident",
+                    "connectionName": "azuresentinel-Prompt-User-Incident",
+                    "connectionProperties": {
+                        "authentication": {
+                            "type": "ManagedServiceIdentity"
+                        }
+                    }
                 }
             }
         }
