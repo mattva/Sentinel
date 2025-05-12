@@ -1,0 +1,46 @@
+let AnomalyThreshold=1.3; //sensitivity to a drift in requests per minute
+let baselineTimeRange=15d;  //lookback timerange to build baseline
+let requestThreshold=20;  //minimum number of request per minute to consider the sample in the baseline
+let baselineSample=7m; //sampling used to build the baseline and lookup timerange for the detection. It should be higher than analytic rule frequency
+let whitelistIPranges=_GetWatchlist('Whitelist_ip'); //create a watchlist with whitelisted IPs in the "IP" column
+let filteredAzureDiagnostics=AzureDiagnostics
+    | where TimeGenerated between (todatetime(ago(baselineTimeRange))..todatetime(ago(baselineSample)))
+    | where Category contains "ApplicationGatewayAccessLog"
+    //keep only base url, remove query strings and add hostname and protocol
+    | extend requestUri_s = iff(indexof(requestUri_s, "?") == -1, requestUri_s, substring(requestUri_s, 0, indexof(requestUri_s, "?")))
+    | extend protocol=iff(isnotempty(sslProtocol_s),"https://","http://")
+    | extend requestUri_s=strcat(protocol,originalHost_s,requestUri_s)
+    | evaluate ipv4_lookup(whitelistIPranges, clientIP_s, IP, return_unmatched = true)
+    //remove lines matching IP ranges in whitelist watchlist
+    | where isempty(IP)
+    | project TimeGenerated,requestUri_s,clientIP_s,IP
+    ;
+let avgRequestsPerMinuteIP = 
+    //take the average number of requests per uri in the last 30 days
+    filteredAzureDiagnostics
+    | summarize requests_per_minute = count() by clientIP_s,requestUri_s, bin(TimeGenerated, baselineSample)
+    | where requests_per_minute >= requestThreshold
+    | summarize avgRequestsIP = avg(requests_per_minute),(95percent,median)=percentiles(requests_per_minute,95,50) by clientIP_s,requestUri_s
+;
+AzureDiagnostics
+//| where TimeGenerated between (todatetime('2025-05-11T03:52:42.3359852Z')..todatetime('2025-05-11T03:59:42.3359852Z'))
+| where TimeGenerated > ago(baselineSample)
+| where Category contains "ApplicationGatewayAccessLog"
+//keep only base url, remove query strings and add hostname and protocol
+| extend requestUri_s = iff(indexof(requestUri_s, "?") == -1, requestUri_s, substring(requestUri_s, 0, indexof(requestUri_s, "?")))
+| extend protocol=iff(isnotempty(sslProtocol_s),"https://","http://")
+| extend requestUri_s=strcat(protocol,originalHost_s,requestUri_s)
+| evaluate ipv4_lookup(whitelistIPranges, clientIP_s, IP, return_unmatched = true)
+//remove lines matching IP ranges in whitelist watchlist
+| where isempty(IP)
+| project TimeGenerated,requestUri_s,clientIP_s,IP
+| summarize requests = count() by clientIP_s, requestUri_s
+| join kind=leftouter (
+    avgRequestsPerMinuteIP
+    )
+    on clientIP_s, requestUri_s
+//| where requests > avgRequestsIP * AnomalyThreshold
+| where requests >= 95percent*AnomalyThreshold
+| extend GeoInfo=geo_info_from_ip_address(clientIP_s)
+| where isnotempty(requestUri_s1)
+| project-away *1
